@@ -56,7 +56,10 @@
             <button class="btn-sm" @click="showHintInput = !showHintInput">+ Add hint</button>
           </div>
           <ul class="hints-list">
-            <li v-for="(h, i) in hints" :key="i">{{ h }}</li>
+            <li v-for="(h, i) in hints" :key="i">
+              <span>{{ h.text }}</span>
+              <span class="hint-time" v-if="h.timestamp">{{ formatHintTime(h.timestamp) }}</span>
+            </li>
           </ul>
         </div>
         <div class="hints-box" v-else-if="bars.length">
@@ -206,7 +209,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed, watch, nextTick } from "vue";
+import { onMounted, onUnmounted, ref, computed, watch, nextTick } from "vue";
 
 type Bar = {
   placeId: string;
@@ -235,6 +238,7 @@ const lngStr = ref("12.579570");
 const radiusStr = ref("1500");
 
 const loading = ref(false);
+const syncing = ref(false);
 const error = ref<string | null>(null);
 const mapOpen = ref(true);
 
@@ -253,59 +257,78 @@ const resultMeta = ref<{ count: number; radius: number } | null>(null);
 const filter = ref("");
 const statusFilter = ref("all");
 
-// --- hints ---
-const hints = ref<string[]>([]);
+// --- hints (synced to Google Sheets "Hints" tab) ---
+type Hint = { text: string; timestamp: string };
+const hints = ref<Hint[]>([]);
 const showHintInput = ref(false);
 const newHint = ref("");
 
-const HINTS_KEY = "chicken-run-hints-v1";
-
-function loadHints() {
+async function loadHints() {
   try {
-    const raw = localStorage.getItem(HINTS_KEY);
-    if (raw) hints.value = JSON.parse(raw);
+    const res = await $fetch<{ hints: Hint[] }>("/api/hints");
+    hints.value = res.hints;
   } catch {
-    /* ignore */
+    /* sheet not ready yet */
   }
 }
 
-function saveHints() {
+function formatHintTime(ts: string): string {
   try {
-    localStorage.setItem(HINTS_KEY, JSON.stringify(hints.value));
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   } catch {
-    /* ignore */
+    return "";
   }
 }
 
-function addHint() {
+async function addHint() {
   const text = newHint.value.trim();
   if (!text) return;
-  hints.value.push(text);
+
+  // Optimistic
+  const timestamp = new Date().toISOString();
+  hints.value.push({ text, timestamp });
   newHint.value = "";
   showHintInput.value = false;
-  saveHints();
-}
 
-// --- status persistence (localStorage) ---
-const LS_KEY = "chicken-run-statuses-v1";
-const statuses = ref<Record<string, State>>({});
-
-function loadStatuses() {
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return;
-    const obj = JSON.parse(raw);
-    if (obj && typeof obj === "object") statuses.value = obj;
-  } catch {
-    /* ignore */
+    await $fetch("/api/hints", {
+      method: "POST",
+      body: { hint: text },
+    });
+  } catch (e: any) {
+    // Revert on failure
+    hints.value.pop();
+    error.value = e?.data?.message || e?.message || "Failed to save hint.";
   }
 }
 
-function saveStatuses() {
+// --- statuses (synced to Google Sheets) ---
+const statuses = ref<Record<string, State>>({});
+
+// --- load bars from sheet on startup ---
+async function loadFromSheet() {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(statuses.value));
+    const res = await $fetch<{
+      bars: Array<Bar & { checkStatus: string }>;
+    }>("/api/sheet");
+
+    if (res.bars.length > 0) {
+      bars.value = res.bars;
+      resultMeta.value = { count: res.bars.length, radius: Number(radiusStr.value) };
+
+      // Populate statuses from sheet data
+      for (const b of res.bars) {
+        statuses.value[b.placeId] = (b.checkStatus as State) || STATE.UNCHECKED;
+      }
+
+      // Init map with the bars we loaded
+      const { lat, lng, radius } = parseInputs();
+      await initMapIfNeeded({ lat, lng }, radius);
+      paintMarkers(bars.value);
+    }
   } catch {
-    /* ignore */
+    // Sheet is empty or not set up yet — that's fine, user will hunt bars
   }
 }
 
@@ -314,7 +337,6 @@ const showResetModal = ref(false);
 const resetPassword = ref("");
 const resetError = ref("");
 const resetPasswordInput = ref<HTMLInputElement | null>(null);
-// Track what the modal should do on success
 let pendingAction: (() => void) | null = null;
 
 function openPasswordModal(onSuccess: () => void) {
@@ -326,13 +348,20 @@ function openPasswordModal(onSuccess: () => void) {
 }
 
 function openResetModal() {
-  openPasswordModal(() => {
-    statuses.value = {};
-    hints.value = [];
-    saveStatuses();
-    saveHints();
-    for (const b of bars.value) {
-      statuses.value[b.placeId] = STATE.UNCHECKED;
+  openPasswordModal(async () => {
+    // Reset statuses on the sheet (keeps bars, sets all to unchecked)
+    syncing.value = true;
+    try {
+      await $fetch("/api/sheet-reset", { method: "POST" });
+      // Reset local state
+      for (const b of bars.value) {
+        statuses.value[b.placeId] = STATE.UNCHECKED;
+      }
+      paintMarkers(bars.value);
+    } catch (e: any) {
+      error.value = e?.data?.message || e?.message || "Reset failed.";
+    } finally {
+      syncing.value = false;
     }
   });
 }
@@ -360,21 +389,28 @@ function attemptReset() {
   }
 }
 
-function toggleStatus(placeId: string, target: State) {
-  // If already set to this state, toggle back to unchecked
-  // Otherwise set to the target state
-  statuses.value[placeId] =
+async function toggleStatus(placeId: string, target: State) {
+  const newStatus =
     statuses.value[placeId] === target ? STATE.UNCHECKED : target;
-}
 
-watch(
-  statuses,
-  () => {
-    saveStatuses();
+  // Optimistic update
+  statuses.value[placeId] = newStatus;
+  paintMarkers(bars.value);
+
+  // Sync to sheet
+  try {
+    await $fetch("/api/sheet-status", {
+      method: "POST",
+      body: { placeId, checkStatus: newStatus },
+    });
+  } catch (e: any) {
+    // Revert on failure
+    statuses.value[placeId] =
+      newStatus === STATE.UNCHECKED ? target : STATE.UNCHECKED;
     paintMarkers(bars.value);
-  },
-  { deep: true }
-);
+    error.value = e?.data?.message || e?.message || "Failed to sync status.";
+  }
+}
 
 // --- stats ---
 const statusCounts = computed(() => {
@@ -441,7 +477,6 @@ async function initMapIfNeeded(
   if (centerMarker) centerMarker.remove();
   if (circle) circle.remove();
 
-  // Center marker with chicken icon
   const chickenIcon = L.divIcon({
     html: '<div style="font-size:28px;text-align:center;">🐔</div>',
     iconSize: [32, 32],
@@ -515,7 +550,7 @@ function escapeHtml(s: string) {
   );
 }
 
-// --- fetch bars ---
+// --- fetch bars from Google Places → write to sheet ---
 async function loadBars() {
   error.value = null;
   loading.value = true;
@@ -524,6 +559,7 @@ async function loadBars() {
     const { lat, lng, radius } = parseInputs();
     await initMapIfNeeded({ lat, lng }, radius);
 
+    // 1. Fetch bars from Google Places API
     const res = await $fetch<{
       center: { lat: number; lng: number };
       radius: number;
@@ -534,10 +570,21 @@ async function loadBars() {
     bars.value = res.bars;
     resultMeta.value = { count: res.count, radius: res.radius };
 
+    // 2. All bars start as unchecked
     for (const b of res.bars) {
-      if (!statuses.value[b.placeId])
-        statuses.value[b.placeId] = STATE.UNCHECKED;
+      statuses.value[b.placeId] = STATE.UNCHECKED;
     }
+
+    // 3. Write everything to the sheet (full replace)
+    const sheetBars = res.bars.map((b) => ({
+      ...b,
+      checkStatus: STATE.UNCHECKED,
+    }));
+
+    await $fetch("/api/sheet", {
+      method: "POST",
+      body: { bars: sheetBars },
+    });
 
     paintMarkers(res.bars);
   } catch (e: any) {
@@ -567,9 +614,58 @@ const filteredBars = computed(() => {
   return result;
 });
 
+// --- auto-poll: sync statuses from sheet every 30s ---
+const POLL_INTERVAL = 30_000;
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+async function pollSheet() {
+  // Don't poll while we're actively loading or syncing
+  if (loading.value || syncing.value) return;
+  // Don't poll if there are no bars loaded yet
+  if (bars.value.length === 0) return;
+
+  try {
+    // Poll statuses and hints in parallel
+    const [sheetRes, hintsRes] = await Promise.all([
+      $fetch<{ bars: Array<Bar & { checkStatus: string }> }>("/api/sheet"),
+      $fetch<{ hints: Hint[] }>("/api/hints"),
+    ]);
+
+    // Update statuses
+    if (sheetRes.bars.length > 0) {
+      let changed = false;
+      for (const b of sheetRes.bars) {
+        const sheetStatus = (b.checkStatus as State) || STATE.UNCHECKED;
+        if (statuses.value[b.placeId] !== sheetStatus) {
+          statuses.value[b.placeId] = sheetStatus;
+          changed = true;
+        }
+      }
+      if (changed) {
+        paintMarkers(bars.value);
+      }
+    }
+
+    // Update hints (only if count changed — avoids unnecessary reactivity)
+    if (hintsRes.hints.length !== hints.value.length) {
+      hints.value = hintsRes.hints;
+    }
+  } catch {
+    // Silent fail — polling shouldn't flash errors
+  }
+}
+
 onMounted(() => {
-  loadStatuses();
   loadHints();
+  loadFromSheet();
+  pollTimer = setInterval(pollSheet, POLL_INTERVAL);
+});
+
+onUnmounted(() => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
 });
 </script>
 
@@ -805,6 +901,17 @@ body {
 
 .hints-list li {
   margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.hint-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  white-space: nowrap;
 }
 
 .no-hints {
