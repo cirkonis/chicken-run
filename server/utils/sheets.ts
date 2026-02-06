@@ -43,6 +43,7 @@ export function getSheetId(): string {
 // I: businessStatus
 // J: mapsUrl
 // K: checkStatus (unchecked | checked | not_checking)
+// L: category (bar | cafe | restaurant | hotel | other)
 export const SHEET_RANGE = "Sheet1";
 export const HEADER_ROW = [
   "placeId",
@@ -56,4 +57,5 @@ export const HEADER_ROW = [
   "businessStatus",
   "mapsUrl",
   "checkStatus",
+  "category",
 ];

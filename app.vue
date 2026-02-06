@@ -116,67 +116,233 @@
           <p>Set coordinates and radius, then hit "Hunt bars" to reveal the battlefield.</p>
         </div>
 
-        <ul v-else class="items">
-          <li
-            v-for="b in filteredBars"
-            :key="b.placeId"
-            class="item"
-            :class="{
-              'item-checked': statuses[b.placeId] === STATE.CHECKED,
-              'item-skip': statuses[b.placeId] === STATE.NOT_CHECKING,
-            }"
-          >
-            <div class="left">
-              <div class="bar-name">
-                <b>{{ b.name }}</b>
-              </div>
-              <div class="bar-addr" v-if="b.address">{{ b.address }}</div>
-              <div class="bar-meta">
-                <span v-if="b.rating != null"
-                  >{{ "⭐".repeat(Math.min(5, Math.round(b.rating))) }}
-                  {{ b.rating }}
-                  <span v-if="b.ratingsTotal" class="ratings-count"
-                    >({{ b.ratingsTotal }})</span
-                  >
-                </span>
-                <span v-if="b.priceLevel != null">
-                  · {{ "💸".repeat(Math.max(1, Math.min(4, b.priceLevel + 1))) }}
-                </span>
-              </div>
-            </div>
+        <div v-else>
+          <!-- BARS FIRST -->
+          <div v-if="groupedResults.bars.length" class="section">
+            <div class="section-title">🍺 Bars</div>
+            <ul class="items">
+              <li
+                v-for="b in groupedResults.bars"
+                :key="b.placeId"
+                class="item"
+                :class="{
+                  'item-checked': statuses[b.placeId] === STATE.CHECKED,
+                  'item-skip': statuses[b.placeId] === STATE.NOT_CHECKING,
+                }"
+              >
+                <div>
+                  <div class="bar-name">{{ b.name }}</div>
+                  <div class="bar-addr">{{ b.address }}</div>
+                  <div class="bar-meta">
+                    <span v-if="b.rating">⭐ {{ b.rating }}</span>
+                    <span v-if="b.ratingsTotal" class="ratings-count">({{ b.ratingsTotal }})</span>
+                    <span v-if="b.priceLevel">{{ '💰'.repeat(b.priceLevel) }}</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <div class="status-btns">
+                    <button
+                      class="sbtn sbtn-checked"
+                      :class="{ active: statuses[b.placeId] === STATE.CHECKED }"
+                      @click="toggleStatus(b.placeId, STATE.CHECKED)"
+                      title="Mark as visited"
+                    >
+                      ✅
+                    </button>
+                    <button
+                      class="sbtn sbtn-skip"
+                      :class="{ active: statuses[b.placeId] === STATE.NOT_CHECKING }"
+                      @click="toggleStatus(b.placeId, STATE.NOT_CHECKING)"
+                      title="Skip this one"
+                    >
+                      ⛔
+                    </button>
+                  </div>
+                  <a :href="b.mapsUrl" target="_blank" rel="noreferrer" class="maps-link">
+                    📍 Maps
+                  </a>
+                </div>
+              </li>
+            </ul>
+          </div>
 
-            <div class="right">
-              <div class="status-btns">
-                <button
-                  class="sbtn sbtn-checked"
-                  :class="{
-                    active: statuses[b.placeId] === STATE.CHECKED,
-                    disabled: statuses[b.placeId] === STATE.NOT_CHECKING,
-                  }"
-                  @click="toggleStatus(b.placeId, STATE.CHECKED)"
-                  title="Visited — no chickens here"
-                >
-                  ✅
-                </button>
-                <button
-                  class="sbtn sbtn-skip"
-                  :class="{
-                    active: statuses[b.placeId] === STATE.NOT_CHECKING,
-                    disabled: statuses[b.placeId] === STATE.CHECKED,
-                  }"
-                  @click="toggleStatus(b.placeId, STATE.NOT_CHECKING)"
-                  title="Skip this one"
-                >
-                  ⛔
-                </button>
-              </div>
+          <!-- THEN CAFES -->
+          <div v-if="groupedResults.cafes.length" class="section">
+            <div class="section-title">☕ Cafés</div>
+            <ul class="items">
+              <li v-for="b in groupedResults.cafes" :key="b.placeId" class="item" :class="{
+                'item-checked': statuses[b.placeId] === STATE.CHECKED,
+                'item-skip': statuses[b.placeId] === STATE.NOT_CHECKING,
+              }">
+                <div>
+                  <div class="bar-name">{{ b.name }}</div>
+                  <div class="bar-addr">{{ b.address }}</div>
+                  <div class="bar-meta">
+                    <span v-if="b.rating">⭐ {{ b.rating }}</span>
+                    <span v-if="b.ratingsTotal" class="ratings-count">({{ b.ratingsTotal }})</span>
+                    <span v-if="b.priceLevel">{{ '💰'.repeat(b.priceLevel) }}</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <div class="status-btns">
+                    <button
+                      class="sbtn sbtn-checked"
+                      :class="{ active: statuses[b.placeId] === STATE.CHECKED }"
+                      @click="toggleStatus(b.placeId, STATE.CHECKED)"
+                      title="Mark as visited"
+                    >
+                      ✅
+                    </button>
+                    <button
+                      class="sbtn sbtn-skip"
+                      :class="{ active: statuses[b.placeId] === STATE.NOT_CHECKING }"
+                      @click="toggleStatus(b.placeId, STATE.NOT_CHECKING)"
+                      title="Skip this one"
+                    >
+                      ⛔
+                    </button>
+                  </div>
+                  <a :href="b.mapsUrl" target="_blank" rel="noreferrer" class="maps-link">
+                    📍 Maps
+                  </a>
+                </div>
+              </li>
+            </ul>
+          </div>
 
-              <a class="maps-link" :href="b.mapsUrl" target="_blank" rel="noreferrer">
-                Open in Maps ↗
-              </a>
-            </div>
-          </li>
-        </ul>
+          <!-- THEN RESTAURANTS -->
+          <div v-if="groupedResults.restaurants.length" class="section">
+            <div class="section-title">🍽️ Restaurants</div>
+            <ul class="items">
+              <li v-for="b in groupedResults.restaurants" :key="b.placeId" class="item" :class="{
+                'item-checked': statuses[b.placeId] === STATE.CHECKED,
+                'item-skip': statuses[b.placeId] === STATE.NOT_CHECKING,
+              }">
+                <div>
+                  <div class="bar-name">{{ b.name }}</div>
+                  <div class="bar-addr">{{ b.address }}</div>
+                  <div class="bar-meta">
+                    <span v-if="b.rating">⭐ {{ b.rating }}</span>
+                    <span v-if="b.ratingsTotal" class="ratings-count">({{ b.ratingsTotal }})</span>
+                    <span v-if="b.priceLevel">{{ '💰'.repeat(b.priceLevel) }}</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <div class="status-btns">
+                    <button
+                      class="sbtn sbtn-checked"
+                      :class="{ active: statuses[b.placeId] === STATE.CHECKED }"
+                      @click="toggleStatus(b.placeId, STATE.CHECKED)"
+                      title="Mark as visited"
+                    >
+                      ✅
+                    </button>
+                    <button
+                      class="sbtn sbtn-skip"
+                      :class="{ active: statuses[b.placeId] === STATE.NOT_CHECKING }"
+                      @click="toggleStatus(b.placeId, STATE.NOT_CHECKING)"
+                      title="Skip this one"
+                    >
+                      ⛔
+                    </button>
+                  </div>
+                  <a :href="b.mapsUrl" target="_blank" rel="noreferrer" class="maps-link">
+                    📍 Maps
+                  </a>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- THEN HOTELS -->
+          <div v-if="groupedResults.hotels.length" class="section">
+            <div class="section-title">🛏️ Hotels</div>
+            <ul class="items">
+              <li v-for="b in groupedResults.hotels" :key="b.placeId" class="item" :class="{
+                'item-checked': statuses[b.placeId] === STATE.CHECKED,
+                'item-skip': statuses[b.placeId] === STATE.NOT_CHECKING,
+              }">
+                <div>
+                  <div class="bar-name">{{ b.name }}</div>
+                  <div class="bar-addr">{{ b.address }}</div>
+                  <div class="bar-meta">
+                    <span v-if="b.rating">⭐ {{ b.rating }}</span>
+                    <span v-if="b.ratingsTotal" class="ratings-count">({{ b.ratingsTotal }})</span>
+                    <span v-if="b.priceLevel">{{ '💰'.repeat(b.priceLevel) }}</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <div class="status-btns">
+                    <button
+                      class="sbtn sbtn-checked"
+                      :class="{ active: statuses[b.placeId] === STATE.CHECKED }"
+                      @click="toggleStatus(b.placeId, STATE.CHECKED)"
+                      title="Mark as visited"
+                    >
+                      ✅
+                    </button>
+                    <button
+                      class="sbtn sbtn-skip"
+                      :class="{ active: statuses[b.placeId] === STATE.NOT_CHECKING }"
+                      @click="toggleStatus(b.placeId, STATE.NOT_CHECKING)"
+                      title="Skip this one"
+                    >
+                      ⛔
+                    </button>
+                  </div>
+                  <a :href="b.mapsUrl" target="_blank" rel="noreferrer" class="maps-link">
+                    📍 Maps
+                  </a>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- ANYTHING WEIRD -->
+          <div v-if="groupedResults.other.length" class="section">
+            <div class="section-title">🌀 Other</div>
+            <ul class="items">
+              <li v-for="b in groupedResults.other" :key="b.placeId" class="item" :class="{
+                'item-checked': statuses[b.placeId] === STATE.CHECKED,
+                'item-skip': statuses[b.placeId] === STATE.NOT_CHECKING,
+              }">
+                <div>
+                  <div class="bar-name">{{ b.name }}</div>
+                  <div class="bar-addr">{{ b.address }}</div>
+                  <div class="bar-meta">
+                    <span v-if="b.rating">⭐ {{ b.rating }}</span>
+                    <span v-if="b.ratingsTotal" class="ratings-count">({{ b.ratingsTotal }})</span>
+                    <span v-if="b.priceLevel">{{ '💰'.repeat(b.priceLevel) }}</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <div class="status-btns">
+                    <button
+                      class="sbtn sbtn-checked"
+                      :class="{ active: statuses[b.placeId] === STATE.CHECKED }"
+                      @click="toggleStatus(b.placeId, STATE.CHECKED)"
+                      title="Mark as visited"
+                    >
+                      ✅
+                    </button>
+                    <button
+                      class="sbtn sbtn-skip"
+                      :class="{ active: statuses[b.placeId] === STATE.NOT_CHECKING }"
+                      @click="toggleStatus(b.placeId, STATE.NOT_CHECKING)"
+                      title="Skip this one"
+                    >
+                      ⛔
+                    </button>
+                  </div>
+                  <a :href="b.mapsUrl" target="_blank" rel="noreferrer" class="maps-link">
+                    📍 Maps
+                  </a>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
       </section>
     </main>
 
@@ -222,6 +388,8 @@ type Bar = {
   priceLevel: number | null;
   status: string | null;
   mapsUrl: string;
+  primaryType?: string;
+  category?: string;
 };
 
 const STATE = {
@@ -594,8 +762,12 @@ async function loadBars() {
   }
 }
 
-const filteredBars = computed(() => {
-  let result = bars.value;
+function normType(b: Bar): string {
+  return (b.category || "").trim().toLowerCase();
+}
+
+function applyFilters(list: Bar[]) {
+  let result = list;
 
   const f = filter.value.trim().toLowerCase();
   if (f) {
@@ -612,6 +784,31 @@ const filteredBars = computed(() => {
   }
 
   return result;
+}
+
+// NEW: one filtered list, then grouped
+const filteredAll = computed(() => applyFilters(bars.value));
+
+const groupedResults = computed(() => {
+  const sections = {
+    bars: [] as Bar[],
+    cafes: [] as Bar[],
+    restaurants: [] as Bar[],
+    hotels: [] as Bar[],
+    other: [] as Bar[],
+  };
+
+  for (const b of filteredAll.value) {
+    const t = normType(b);
+
+    if (t === "bar") sections.bars.push(b);
+    else if (t === "cafe") sections.cafes.push(b);
+    else if (t === "restaurant") sections.restaurants.push(b);
+    else if (t === "hotel") sections.hotels.push(b);
+    else sections.other.push(b);
+  }
+
+  return sections;
 });
 
 // --- auto-poll: sync statuses from sheet every 30s ---
@@ -1255,4 +1452,18 @@ body {
   justify-content: center;
   margin-top: 16px;
 }
+
+.section {
+  margin-bottom: 14px;
+}
+
+.section-title {
+  font-weight: 800;
+  margin: 10px 0 8px;
+  color: var(--accent-dark);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 </style>

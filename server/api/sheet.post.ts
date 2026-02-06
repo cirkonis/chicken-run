@@ -13,6 +13,7 @@ type BarInput = {
   status: string | null;
   mapsUrl: string;
   checkStatus?: string;
+  category?: string;
 };
 
 // POST /api/sheet — full replace: clear sheet and write new bars
@@ -39,6 +40,7 @@ export default defineEventHandler(async (event) => {
     b.status ?? "",
     b.mapsUrl ?? "",
     b.checkStatus ?? "unchecked",
+    b.category ?? "other",
   ]);
 
   const allRows = [HEADER_ROW, ...dataRows];

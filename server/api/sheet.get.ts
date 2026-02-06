@@ -41,6 +41,7 @@ export default defineEventHandler(async () => {
         status: obj.businessStatus || null,
         mapsUrl: obj.mapsUrl || "",
         checkStatus: obj.checkStatus || "unchecked",
+        category: obj.category || "other",
       };
     });
 
