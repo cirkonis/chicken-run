@@ -92,7 +92,9 @@
             <option value="checked">Visited</option>
             <option value="not_checking">Skipping</option>
           </select>
-          <button class="btn-sm btn-danger" @click="openResetModal">Reset all</button>
+          <button class="btn-sm" @click="refreshFromSheet" :disabled="syncing">
+            {{ syncing ? "Refreshing..." : "🔄 Refresh" }}
+          </button>
         </div>
 
         <div class="stats" v-if="bars.length">
@@ -355,7 +357,7 @@
       <p>🐔 Don't be a chicken — check every bar. Or at least the ones that look fun.</p>
     </footer>
 
-    <!-- Reset password modal -->
+    <!-- Password modal -->
     <Teleport to="body">
       <div v-if="showResetModal" class="modal-overlay" @click.self="closeResetModal">
         <div class="modal">
@@ -371,7 +373,7 @@
           <div v-if="resetError" class="modal-error">{{ resetError }}</div>
           <div class="modal-actions">
             <button class="btn-sm" @click="closeResetModal">Nevermind</button>
-            <button class="btn-sm btn-danger" @click="attemptReset">Reset</button>
+            <button class="btn-sm btn-danger" @click="attemptReset">Go!</button>
           </div>
         </div>
       </div>
@@ -563,31 +565,6 @@ function openPasswordModal(onSuccess: () => void) {
   nextTick(() => resetPasswordInput.value?.focus());
 }
 
-function openResetModal() {
-  openPasswordModal(async () => {
-    // Reset statuses on the sheet (keeps bars, sets all to unchecked)
-    syncing.value = true;
-    try {
-      await $fetch("/api/sheet-reset", { method: "POST" });
-      // Reset local state
-      for (const b of bars.value) {
-        statuses.value[b.placeId] = STATE.UNCHECKED;
-      }
-      paintMarkers(bars.value);
-    } catch (e: any) {
-      error.value = e?.data?.message || e?.message || "Reset failed.";
-    } finally {
-      syncing.value = false;
-    }
-  });
-}
-
-function handleHuntBars() {
-  openPasswordModal(() => {
-    loadBars();
-  });
-}
-
 function closeResetModal() {
   showResetModal.value = false;
   resetPassword.value = "";
@@ -603,6 +580,25 @@ function attemptReset() {
     resetError.value = "🐔 GET OUT OF HERE";
     resetPassword.value = "";
   }
+}
+
+// Manual refresh function to re-pull from sheet
+async function refreshFromSheet() {
+  syncing.value = true;
+  try {
+    await loadFromSheet();
+    await loadHints();
+  } catch (e: any) {
+    error.value = e?.data?.message || e?.message || "Failed to refresh.";
+  } finally {
+    syncing.value = false;
+  }
+}
+
+function handleHuntBars() {
+  openPasswordModal(() => {
+    loadBars();
+  });
 }
 
 async function toggleStatus(placeId: string, target: State) {
@@ -801,6 +797,14 @@ async function loadBars() {
       method: "POST",
       body: { bars: sheetBars },
     });
+
+    // 4. Clear all hints for fresh start
+    await $fetch("/api/hints-reset", {
+      method: "POST",
+    });
+
+    // Reset local hints
+    hints.value = [];
 
     paintMarkers(res.bars);
   } catch (e: any) {
