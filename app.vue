@@ -2,8 +2,13 @@
   <div class="wrap">
     <header class="top">
       <div class="title-row">
-        <h1>🐔 Chicken Run</h1>
-        <span class="tagline">Find the chickens. Try not to get wrecked.</span>
+        <div class="title-group">
+          <h1>🐔 Chicken Run</h1>
+          <span class="tagline">Find the two chickens. Try not to get wrecked.</span>
+        </div>
+        <button class="info-btn" @click="showWelcomeModal = true" title="Show instructions">
+          ℹ️
+        </button>
       </div>
 
       <div class="controls">
@@ -371,6 +376,47 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- Welcome modal -->
+    <Teleport to="body">
+      <div v-if="showWelcomeModal" class="modal-overlay" @click.self="closeWelcomeModal">
+        <div class="modal welcome-modal">
+          <div class="modal-title">🐔 Welcome to the Chicken Run!</div>
+          <div class="welcome-content">
+            <p>The hunt is on! Two sneaky chickens are hiding in a bar. Your mission: find them before the money is gone.</p>
+            
+            <div class="rule-box">
+              <div class="rule-icon">✅</div>
+              <div>
+                <strong>Checked a bar?</strong><br>
+                Hit the <strong>green checkmark</strong> if you visited and the chickens weren't there.
+              </div>
+            </div>
+
+            <div class="rule-box">
+              <div class="rule-icon">⛔</div>
+              <div>
+                <strong>Skip the duds</strong><br>
+                Hit the <strong>red circle</strong> for bars you <em>know</em> the chickens wouldn't hide in. Save everyone some time!
+              </div>
+            </div>
+
+            <div class="rule-box chicken-found">
+              <div class="rule-icon">🐔</div>
+              <div>
+                <strong>Found a chicken?!</strong><br>
+                DON'T touch any buttons! Just celebrate quietly and let others keep hunting. You've won (or kinda won if there's already people there).
+              </div>
+            </div>
+
+            <p class="warning-text">⚠️ Be a champ — don't sabotage other hunters by messing with their marks. We're all in this together!</p>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-primary" @click="closeWelcomeModal">Let's hunt! 🍺</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -506,6 +552,8 @@ const resetPassword = ref("");
 const resetError = ref("");
 const resetPasswordInput = ref<HTMLInputElement | null>(null);
 let pendingAction: (() => void) | null = null;
+
+const showWelcomeModal = ref(false);
 
 function openPasswordModal(onSuccess: () => void) {
   resetPassword.value = "";
@@ -853,10 +901,21 @@ async function pollSheet() {
 }
 
 onMounted(() => {
+  // Check if user has seen the welcome modal before
+  const hasSeenWelcome = localStorage.getItem('chickenRunWelcomeSeen');
+  if (!hasSeenWelcome) {
+    showWelcomeModal.value = true;
+  }
+  
   loadHints();
   loadFromSheet();
   pollTimer = setInterval(pollSheet, POLL_INTERVAL);
 });
+
+function closeWelcomeModal() {
+  showWelcomeModal.value = false;
+  localStorage.setItem('chickenRunWelcomeSeen', 'true');
+}
 
 onUnmounted(() => {
   if (pollTimer) {
@@ -908,10 +967,16 @@ body {
 
 .title-row {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
   margin-bottom: 12px;
+}
+
+.title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .title-row h1 {
@@ -924,6 +989,26 @@ body {
   font-size: 14px;
   color: var(--text-muted);
   font-style: italic;
+}
+
+.info-btn {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.info-btn:hover {
+  border-color: var(--accent);
+  transform: scale(1.05);
 }
 
 .controls {
@@ -1464,6 +1549,79 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Welcome modal */
+.welcome-modal {
+  max-width: 520px;
+  text-align: left;
+}
+
+.welcome-content {
+  margin: 16px 0;
+}
+
+.welcome-content > p {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.rule-box {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 12px;
+  margin-bottom: 10px;
+  border: 2px solid var(--border);
+}
+
+.rule-box.chicken-found {
+  background: #fff8e1;
+  border-color: var(--chicken-yellow);
+}
+
+.rule-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.rule-box strong {
+  color: var(--accent-dark);
+}
+
+.rule-box div {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.warning-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 12px !important;
+  padding: 10px;
+  background: #fef0ef;
+  border-radius: 8px;
+  border: 1px solid var(--red);
+}
+
+.btn-primary {
+  padding: 10px 24px;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+
+.btn-primary:hover {
+  background: var(--accent-dark);
 }
 
 </style>
