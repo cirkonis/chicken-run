@@ -20,6 +20,12 @@ type PlaceNewResult = {
   googleMapsUri?: string;
   primaryType?: string;
   types?: string[];
+  regularOpeningHours?: {
+    periods?: Array<{
+      open?: { day: number; hour: number; minute: number };
+      close?: { day: number; hour: number; minute: number };
+    }>;
+  };
 };
 
 type NearbySearchNewResponse = {
@@ -110,7 +116,7 @@ const HOTEL_TYPES = new Set([
   "lodging",
 ]);
 
-type Category = "bar" | "cafe" | "restaurant" | "hotel" | "other";
+type Category = "bar" | "cocktail_bar" | "cafe" | "restaurant" | "hotel" | "other";
 
 function classifyPlace(primaryType?: string, types?: string[]): Category {
   // primaryType is the strongest signal
@@ -141,6 +147,39 @@ function classifyPlace(primaryType?: string, types?: string[]): Category {
   return "other";
 }
 
+// ── Opening hours helpers ───────────────────────────────────────────
+
+/** Returns the earliest opening hour across all periods, or null if unknown. */
+function getEarliestOpenHour(
+  hours?: PlaceNewResult["regularOpeningHours"]
+): number | null {
+  if (!hours?.periods?.length) return null;
+  let earliest = 24;
+  for (const p of hours.periods) {
+    if (p.open) {
+      const h = p.open.hour + p.open.minute / 60;
+      if (h < earliest) earliest = h;
+    }
+  }
+  return earliest === 24 ? null : earliest;
+}
+
+/** Returns true if this place is a nightclub (opens at 18:00 or later). */
+function isNightclub(
+  primaryType?: string,
+  openHour?: number | null
+): boolean {
+  if (primaryType === "night_club") return true;
+  if (openHour !== null && openHour !== undefined && openHour >= 18) return true;
+  return false;
+}
+
+/** Returns true if this bar is likely a cocktail bar (opens 15:00–16:59). */
+function isCocktailBar(openHour: number | null): boolean {
+  if (openHour === null) return false;
+  return openHour >= 15 && openHour < 17;
+}
+
 // ── Multi-circle geometry ───────────────────────────────────────────
 
 type Circle = { latitude: number; longitude: number; radius: number };
@@ -154,27 +193,38 @@ function generateSearchCircles(
     return [{ latitude: lat, longitude: lng, radius }];
   }
 
-  const subRadius = radius * 0.55;
-  const offsetDist = radius * 0.5;
+  // 19 circles: 1 center + 6 inner ring + 12 outer ring
+  // Each sub-circle is 500m radius — good overlap for a 1.5km area
+  const subRadius = radius * 0.35;
+  const innerOffset = radius * 0.38;
+  const outerOffset = radius * 0.75;
 
   const circles: Circle[] = [
     { latitude: lat, longitude: lng, radius: subRadius },
   ];
 
   const earthRadius = 6371000;
-  for (let i = 0; i < 6; i++) {
-    const angle = (i * 60 * Math.PI) / 180;
-    const dLat = (offsetDist * Math.cos(angle)) / earthRadius;
-    const dLng =
-      (offsetDist * Math.sin(angle)) /
-      (earthRadius * Math.cos((lat * Math.PI) / 180));
 
-    circles.push({
-      latitude: lat + (dLat * 180) / Math.PI,
-      longitude: lng + (dLng * 180) / Math.PI,
-      radius: subRadius,
-    });
+  function addRing(count: number, offsetDist: number) {
+    for (let i = 0; i < count; i++) {
+      const angle = (i * (360 / count) * Math.PI) / 180;
+      const dLat = (offsetDist * Math.cos(angle)) / earthRadius;
+      const dLng =
+        (offsetDist * Math.sin(angle)) /
+        (earthRadius * Math.cos((lat * Math.PI) / 180));
+
+      circles.push({
+        latitude: lat + (dLat * 180) / Math.PI,
+        longitude: lng + (dLng * 180) / Math.PI,
+        radius: subRadius,
+      });
+    }
   }
+
+  // Inner ring: 6 circles
+  addRing(6, innerOffset);
+  // Outer ring: 12 circles
+  addRing(12, outerOffset);
 
   return circles;
 }
@@ -193,6 +243,7 @@ const FIELD_MASK = [
   "places.googleMapsUri",
   "places.primaryType",
   "places.types",
+  "places.regularOpeningHours",
 ].join(",");
 
 async function searchOneCircle(
@@ -201,6 +252,7 @@ async function searchOneCircle(
 ): Promise<PlaceNewResult[]> {
   const body = {
     includedTypes: ["bar"],
+    excludedTypes: ["hotel", "restaurant", "cafe", "coffee_shop", "lodging"],
     maxResultCount: 20,
     locationRestriction: {
       circle: {
@@ -259,6 +311,14 @@ export default defineEventHandler(async (event) => {
     .map((r) => {
       const loc = r.location;
       const placeId = r.id ?? "";
+      const openHour = getEarliestOpenHour(r.regularOpeningHours);
+      let category = classifyPlace(r.primaryType, r.types);
+
+      // Tag cocktail bars (bars that open between 15:00-16:59)
+      if (category === "bar" && isCocktailBar(openHour)) {
+        category = "cocktail_bar";
+      }
+
       return {
         placeId,
         name: r.displayName?.text ?? "Unknown",
@@ -274,13 +334,18 @@ export default defineEventHandler(async (event) => {
           `https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(placeId)}`,
         primaryType: r.primaryType ?? null,
         types: r.types ?? [],
-        category: classifyPlace(r.primaryType, r.types),
+        category,
+        openHour,
       };
     })
     .filter(
       (b): b is typeof b & { lat: number; lng: number } =>
         typeof b.lat === "number" && typeof b.lng === "number"
-    );
+    )
+    // Drop nightclubs (primaryType night_club OR opens at 18:00+)
+    .filter((b) => !isNightclub(b.primaryType ?? undefined, b.openHour))
+    // Drop hotels, restaurants, cafes that slipped through
+    .filter((b) => !["hotel", "restaurant", "cafe"].includes(b.category));
 
   const unique = new Map<string, (typeof bars)[number]>();
   for (const b of bars) unique.set(b.placeId, b);
