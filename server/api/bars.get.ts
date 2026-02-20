@@ -63,6 +63,14 @@ const BAR_TYPES = new Set([
   "night_club",
 ]);
 
+// Strict set: only these primaryTypes are "real" bars we want to keep
+const REAL_BAR_PRIMARY_TYPES = new Set([
+  "bar",
+  "bar_and_grill",
+  "pub",
+  "wine_bar",
+]);
+
 const CAFE_TYPES = new Set([
   "cafe",
   "coffee_shop",
@@ -116,7 +124,7 @@ const HOTEL_TYPES = new Set([
   "lodging",
 ]);
 
-type Category = "bar" | "cocktail_bar" | "cafe" | "restaurant" | "hotel" | "other";
+type Category = "bar" | "cafe" | "restaurant" | "hotel" | "other";
 
 function classifyPlace(primaryType?: string, types?: string[]): Category {
   // primaryType is the strongest signal
@@ -172,12 +180,6 @@ function isNightclub(
   if (primaryType === "night_club") return true;
   if (openHour !== null && openHour !== undefined && openHour >= 18) return true;
   return false;
-}
-
-/** Returns true if this bar is likely a cocktail bar (opens 15:00–16:59). */
-function isCocktailBar(openHour: number | null): boolean {
-  if (openHour === null) return false;
-  return openHour >= 15 && openHour < 17;
 }
 
 // ── Multi-circle geometry ───────────────────────────────────────────
@@ -312,12 +314,7 @@ export default defineEventHandler(async (event) => {
       const loc = r.location;
       const placeId = r.id ?? "";
       const openHour = getEarliestOpenHour(r.regularOpeningHours);
-      let category = classifyPlace(r.primaryType, r.types);
-
-      // Tag cocktail bars (bars that open between 15:00-16:59)
-      if (category === "bar" && isCocktailBar(openHour)) {
-        category = "cocktail_bar";
-      }
+      const category = classifyPlace(r.primaryType, r.types);
 
       return {
         placeId,
@@ -344,8 +341,10 @@ export default defineEventHandler(async (event) => {
     )
     // Drop nightclubs (primaryType night_club OR opens at 18:00+)
     .filter((b) => !isNightclub(b.primaryType ?? undefined, b.openHour))
-    // Drop hotels, restaurants, cafes that slipped through
-    .filter((b) => !["hotel", "restaurant", "cafe"].includes(b.category));
+    // Only keep places whose primaryType is a real bar type.
+    // This catches music venues, IT companies, etc. that have "bar" in
+    // their types array but are not actually bars.
+    .filter((b) => b.primaryType != null && REAL_BAR_PRIMARY_TYPES.has(b.primaryType));
 
   const unique = new Map<string, (typeof bars)[number]>();
   for (const b of bars) unique.set(b.placeId, b);
