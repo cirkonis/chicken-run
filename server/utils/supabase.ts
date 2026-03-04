@@ -50,21 +50,3 @@ export function getUserClient(event: H3Event): SupabaseClient {
   return client;
 }
 
-// ── Helper: get authenticated user ID from request ──────────
-// Throws 401 if not authenticated
-export async function requireUser(event: H3Event): Promise<string> {
-  const client = getUserClient(event);
-  const {
-    data: { user },
-    error,
-  } = await client.auth.getUser();
-
-  if (error || !user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: "Unauthorized — please sign in",
-    });
-  }
-
-  return user.id;
-}

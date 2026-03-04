@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  body {
+    @apply m-0 bg-bg text-text font-sans;
+  }
+}
+
+/* Custom keyframe animations */
+@keyframes bounce-chicken {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateX(-50%) translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  .animate-bounce-chicken {
+    animation: bounce-chicken 1s ease-in-out infinite;
+  }
+  .animate-slide-up {
+    animation: slide-up 0.2s ease-out;
+  }
+}
+
+/* Leaflet icon overrides — must be global */
+@layer components {
+  .chicken-icon,
+  .bar-icon {
+    background: none !important;
+    border: none !important;
+  }
+}

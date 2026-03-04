@@ -1,9 +1,8 @@
 import { defineEventHandler, getRouterParam, createError } from "h3";
-import { getUserClient, requireUser } from "../../../../utils/supabase";
+import { getUserClient } from "../../../../utils/supabase";
 
 // GET /api/hunts/:huntId/hints
 export default defineEventHandler(async (event) => {
-  await requireUser(event);
   const huntId = getRouterParam(event, "huntId");
   const supabase = getUserClient(event);
 
@@ -25,12 +24,6 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
-    hints: (data || []).map((h: any) => ({
-      id: h.id,
-      text: h.text,
-      authorId: h.author_id,
-      authorName: h.profiles?.display_name || "Unknown",
-      createdAt: h.created_at,
-    })),
+    hints: (data || []).map(mapHint),
   };
 });

@@ -1,10 +1,10 @@
 import { defineEventHandler, readBody, getRouterParam, createError } from "h3";
-import { getUserClient, requireUser } from "../../../../utils/supabase";
+import { getUserClient } from "../../../../utils/supabase";
 
 // PATCH /api/hunts/:huntId/bars/:barId — update a bar's check status
 // Body: { checkStatus: "unchecked" | "checked" | "not_checking" }
 export default defineEventHandler(async (event) => {
-  const userId = await requireUser(event);
+  const userId = event.context.userId!;
   const huntId = getRouterParam(event, "huntId");
   const barId = getRouterParam(event, "barId");
   const supabase = getUserClient(event);
@@ -52,12 +52,6 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
-    bar: {
-      id: data.id,
-      placeId: data.place_id,
-      checkStatus: data.check_status,
-      checkedBy: data.checked_by,
-      checkedAt: data.checked_at,
-    },
+    bar: mapBar(data),
   };
 });

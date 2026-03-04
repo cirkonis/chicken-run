@@ -1,9 +1,9 @@
 import { defineEventHandler, getRouterParam, createError } from "h3";
-import { getUserClient, requireUser } from "../../../../utils/supabase";
+import { getUserClient } from "../../../../utils/supabase";
 
 // POST /api/hunts/:huntId/bars/reset — reset all bar statuses to unchecked
 export default defineEventHandler(async (event) => {
-  const userId = await requireUser(event);
+  const userId = event.context.userId!;
   const huntId = getRouterParam(event, "huntId");
   const supabase = getUserClient(event);
 

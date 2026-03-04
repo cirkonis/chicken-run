@@ -1,10 +1,10 @@
 import { defineEventHandler, readBody, createError } from "h3";
-import { getAdminClient, requireUser } from "../../utils/supabase";
+import { getAdminClient } from "../../utils/supabase";
 
 // POST /api/hunts/join — join a hunt by code (Kahoot-style)
 // Body: { code: "ABC123" }
 export default defineEventHandler(async (event) => {
-  const userId = await requireUser(event);
+  const userId = event.context.userId!;
   const body = await readBody<{ code: string }>(event);
 
   if (!body?.code?.trim()) {

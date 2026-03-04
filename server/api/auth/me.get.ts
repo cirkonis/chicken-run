@@ -1,9 +1,9 @@
 import { defineEventHandler } from "h3";
-import { getUserClient, requireUser } from "../../utils/supabase";
+import { getUserClient } from "../../utils/supabase";
 
 // GET /api/auth/me — get current user's profile
 export default defineEventHandler(async (event) => {
-  const userId = await requireUser(event);
+  const userId = event.context.userId!;
   const supabase = getUserClient(event);
 
   const { data: profile, error } = await supabase

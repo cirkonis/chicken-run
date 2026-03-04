@@ -1,9 +1,9 @@
 import { defineEventHandler } from "h3";
-import { getUserClient, requireUser } from "../../utils/supabase";
+import { getUserClient } from "../../utils/supabase";
 
 // GET /api/hunts — list all hunts the current user is a participant in
 export default defineEventHandler(async (event) => {
-  const userId = await requireUser(event);
+  const userId = event.context.userId!;
   const supabase = getUserClient(event);
 
   // Get hunt IDs the user is participating in
@@ -43,17 +43,8 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
-    hunts: (hunts || []).map((h) => ({
-      id: h.id,
-      name: h.name,
-      hunterCode: h.hunter_code,
-      chickenCode: h.chicken_code,
-      centerLat: h.center_lat,
-      centerLng: h.center_lng,
-      radiusMeters: h.radius_meters,
-      status: h.status,
-      role: roleMap[h.id] || "hunter",
-      createdAt: h.created_at,
-    })),
+    hunts: (hunts || []).map((h) =>
+      mapHuntWithRole(h, roleMap[h.id] || "hunter")
+    ),
   };
 });

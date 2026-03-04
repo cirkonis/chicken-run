@@ -1,57 +1,54 @@
 <template>
-  <div class="landing">
+  <div class="max-w-[560px] mx-auto px-4 py-5 min-h-screen">
     <!-- Loading -->
-    <div v-if="auth.state.loading" class="loading-screen">
-      <div class="loading-chicken">🐔</div>
-      <p>Warming up the coop...</p>
-    </div>
+    <LoadingSpinner v-if="auth.state.loading" message="Warming up the coop..." />
 
     <template v-else>
       <!-- ─── Hero: Join a Hunt ─────────────────────────── -->
-      <div class="hero">
-        <h1>🐔 Chicken Run</h1>
-        <p class="hero-sub">The chickens are hiding. Find them before the money runs out.</p>
+      <div class="text-center pt-8 pb-2">
+        <h1 class="m-0 text-4xl text-accent-dark">🐔 Chicken Run</h1>
+        <p class="text-text-muted text-[15px] mt-1.5">The chickens are hiding. Find them before the money runs out.</p>
       </div>
 
-      <div class="join-card">
-        <h2>Join a Hunt</h2>
-        <p class="join-desc">Got a hunt code from your host? Jump straight in.</p>
+      <div class="bg-surface border-[3px] border-accent rounded-[20px] p-7 mt-6 text-center">
+        <h2 class="m-0 mb-1 text-[22px] text-accent-dark">Join a Hunt</h2>
+        <p class="text-text-muted text-sm m-0 mb-5">Got a hunt code from your host? Jump straight in.</p>
 
         <!-- Step 1: Enter code -->
-        <div v-if="joinStep === 'code'" class="join-form">
+        <div v-if="joinStep === 'code'" class="flex flex-col gap-3">
           <input
             v-model="joinCode"
             type="text"
             placeholder="HUNT CODE"
-            class="code-input"
+            class="px-5 py-4 border-[3px] border-border rounded-[14px] text-[28px] font-extrabold tracking-[8px] text-center uppercase bg-bg text-accent-dark focus:outline-none focus:border-accent placeholder:text-lg placeholder:tracking-[4px] placeholder:font-semibold placeholder:text-text-muted placeholder:opacity-50"
             maxlength="6"
             @keyup.enter="validateCode"
           />
-          <div v-if="joinError" class="form-error">{{ joinError }}</div>
-          <button class="btn-big" :disabled="joinLoading" @click="validateCode">
+          <div v-if="joinError" class="px-3 py-2 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ joinError }}</div>
+          <button class="px-6 py-3.5 border-0 rounded-[14px] cursor-pointer bg-accent text-white font-bold text-base transition-colors text-center no-underline block hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed" :disabled="joinLoading" @click="validateCode">
             {{ joinLoading ? "Checking..." : "Next →" }}
           </button>
         </div>
 
         <!-- Step 2: Enter nickname -->
-        <div v-if="joinStep === 'nickname'" class="join-form">
-          <div class="found-hunt">
-            <span class="found-label">Joining:</span>
-            <span class="found-name">{{ foundHuntName }}</span>
+        <div v-if="joinStep === 'nickname'" class="flex flex-col gap-3">
+          <div class="flex items-center justify-center gap-2 p-2.5 bg-[#f0faf4] border-2 border-green rounded-[10px] text-sm">
+            <span class="text-text-muted">Joining:</span>
+            <span class="font-bold text-green">{{ foundHuntName }}</span>
           </div>
           <input
             ref="nicknameInput"
             v-model="nickname"
             type="text"
             placeholder="Your nickname"
-            class="nickname-input"
+            class="px-5 py-3.5 border-[3px] border-border rounded-[14px] text-lg font-semibold text-center bg-bg focus:outline-none focus:border-accent"
             maxlength="24"
             @keyup.enter="joinAsGuest"
           />
-          <div v-if="joinError" class="form-error">{{ joinError }}</div>
-          <div class="join-btns">
-            <button class="btn-back" @click="joinStep = 'code'">← Back</button>
-            <button class="btn-big" :disabled="joinLoading" @click="joinAsGuest">
+          <div v-if="joinError" class="px-3 py-2 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ joinError }}</div>
+          <div class="flex gap-2.5">
+            <button class="px-5 py-3.5 border-2 border-border rounded-[14px] cursor-pointer bg-surface font-semibold text-sm text-text-muted transition-all hover:border-accent hover:text-accent" @click="joinStep = 'code'">← Back</button>
+            <button class="px-6 py-3.5 border-0 rounded-[14px] cursor-pointer bg-accent text-white font-bold text-base transition-colors text-center no-underline block hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed" :disabled="joinLoading" @click="joinAsGuest">
               {{ joinLoading ? "Joining..." : "Let's Hunt!" }}
             </button>
           </div>
@@ -59,52 +56,54 @@
       </div>
 
       <!-- ─── Host section ──────────────────────────────── -->
-      <div class="host-section">
-        <div class="divider">
-          <span>or</span>
+      <div>
+        <div class="flex items-center gap-4 my-8">
+          <span class="flex-1 h-px bg-border"></span>
+          <span class="text-text-muted text-[13px] font-semibold uppercase tracking-wider">or</span>
+          <span class="flex-1 h-px bg-border"></span>
         </div>
 
         <!-- Not logged in: show sign in -->
-        <div v-if="!auth.isLoggedIn.value" class="host-card">
-          <h3>Host a Hunt</h3>
-          <p class="host-desc">Create hunts, get codes, run the show.</p>
+        <div v-if="!auth.isLoggedIn.value" class="bg-surface border-2 border-border rounded-[20px] p-6 text-center">
+          <h3 class="m-0 mb-1 text-lg">Host a Hunt</h3>
+          <p class="text-text-muted text-[13px] m-0 mb-4">Create hunts, get codes, run the show.</p>
 
-          <div class="tab-row">
-            <button :class="['tab', { active: authMode === 'login' }]" @click="authMode = 'login'">Sign In</button>
-            <button :class="['tab', { active: authMode === 'signup' }]" @click="authMode = 'signup'">Sign Up</button>
+          <div class="flex gap-1 bg-bg rounded-xl p-1 mb-4">
+            <button :class="['flex-1 py-2 border-none rounded-[10px] cursor-pointer font-semibold text-[13px] transition-all', authMode === 'login' ? 'bg-surface text-accent-dark shadow-sm' : 'bg-transparent text-text-muted']" @click="authMode = 'login'">Sign In</button>
+            <button :class="['flex-1 py-2 border-none rounded-[10px] cursor-pointer font-semibold text-[13px] transition-all', authMode === 'signup' ? 'bg-surface text-accent-dark shadow-sm' : 'bg-transparent text-text-muted']" @click="authMode = 'signup'">Sign Up</button>
           </div>
 
-          <form @submit.prevent="handleAuth" class="auth-form">
+          <form @submit.prevent="handleAuth" class="flex flex-col gap-2.5">
             <input
               v-if="authMode === 'signup'"
               v-model="displayName"
               type="text"
               placeholder="Display name"
-              class="form-input"
+              class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent"
             />
-            <input v-model="email" type="email" placeholder="Email" class="form-input" required />
-            <input v-model="password" type="password" placeholder="Password" class="form-input" required />
-            <div v-if="authError" class="form-error">{{ authError }}</div>
-            <button type="submit" class="btn-host" :disabled="authLoading">
+            <input v-model="email" type="email" placeholder="Email" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" required />
+            <input v-model="password" type="password" placeholder="Password" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" required />
+            <div v-if="authError" class="px-3 py-2 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ authError }}</div>
+            <button type="submit" class="px-5 py-2.5 border-2 border-accent rounded-xl cursor-pointer bg-transparent text-accent font-semibold text-sm transition-all hover:bg-accent hover:text-white disabled:opacity-60 disabled:cursor-not-allowed" :disabled="authLoading">
               {{ authLoading ? "Working..." : authMode === "login" ? "Sign In" : "Create Account" }}
             </button>
           </form>
         </div>
 
         <!-- Logged in as host: show dashboard link -->
-        <div v-else class="host-card host-logged-in">
-          <div class="host-user">
+        <div v-else class="bg-surface border-2 border-border rounded-[20px] p-6 text-center flex flex-col gap-3">
+          <div class="flex justify-between items-center font-semibold text-[15px]">
             <span>Hey {{ auth.state.user?.displayName }}!</span>
-            <button class="btn-text" @click="auth.logout()">Logout</button>
+            <button class="bg-transparent border-none text-text-muted text-[13px] cursor-pointer underline" @click="auth.logout()">Logout</button>
           </div>
-          <NuxtLink to="/dashboard" class="btn-big dashboard-link">
+          <NuxtLink to="/dashboard" class="px-6 py-3.5 border-0 rounded-[14px] cursor-pointer bg-accent text-white font-bold text-base transition-colors text-center no-underline block hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed w-full">
             Go to Host Dashboard
           </NuxtLink>
         </div>
       </div>
 
-      <footer class="landing-footer">
-        <p>🐔 Don't be a chicken — check every bar.</p>
+      <footer class="text-center pt-7 pb-3 text-[13px] text-text-muted">
+        <p class="m-0">🐔 Don't be a chicken — check every bar.</p>
       </footer>
     </template>
   </div>
@@ -217,332 +216,3 @@ async function handleAuth() {
   }
 }
 </script>
-
-<style scoped>
-.landing {
-  max-width: 560px;
-  margin: 0 auto;
-  padding: 20px 16px;
-  min-height: 100vh;
-}
-
-.loading-screen {
-  text-align: center;
-  padding: 60px 0;
-  color: var(--text-muted);
-}
-
-.loading-chicken {
-  font-size: 48px;
-  animation: bounce 1s ease-in-out infinite;
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-12px); }
-}
-
-/* Hero */
-.hero {
-  text-align: center;
-  padding: 32px 0 8px;
-}
-
-.hero h1 {
-  margin: 0;
-  font-size: 36px;
-  color: var(--accent-dark);
-}
-
-.hero-sub {
-  color: var(--text-muted);
-  font-size: 15px;
-  margin: 6px 0 0;
-}
-
-/* Join Card — the star of the show */
-.join-card {
-  background: var(--surface);
-  border: 3px solid var(--accent);
-  border-radius: 20px;
-  padding: 28px;
-  margin-top: 24px;
-  text-align: center;
-}
-
-.join-card h2 {
-  margin: 0 0 4px;
-  font-size: 22px;
-  color: var(--accent-dark);
-}
-
-.join-desc {
-  color: var(--text-muted);
-  font-size: 14px;
-  margin: 0 0 20px;
-}
-
-.join-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.code-input {
-  padding: 16px 20px;
-  border: 3px solid var(--border);
-  border-radius: 14px;
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: 8px;
-  text-align: center;
-  text-transform: uppercase;
-  background: var(--bg);
-  color: var(--accent-dark);
-}
-
-.code-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.code-input::placeholder {
-  font-size: 18px;
-  letter-spacing: 4px;
-  font-weight: 600;
-  color: var(--text-muted);
-  opacity: 0.5;
-}
-
-.nickname-input {
-  padding: 14px 20px;
-  border: 3px solid var(--border);
-  border-radius: 14px;
-  font-size: 18px;
-  font-weight: 600;
-  text-align: center;
-  background: var(--bg);
-}
-
-.nickname-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.found-hunt {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px;
-  background: #f0faf4;
-  border: 2px solid var(--green);
-  border-radius: 10px;
-  font-size: 14px;
-}
-
-.found-label { color: var(--text-muted); }
-.found-name { font-weight: 700; color: var(--green); }
-
-.btn-big {
-  padding: 14px 24px;
-  border: 0;
-  border-radius: 14px;
-  cursor: pointer;
-  background: var(--accent);
-  color: white;
-  font-weight: 700;
-  font-size: 16px;
-  transition: background 0.15s;
-  text-align: center;
-  text-decoration: none;
-  display: block;
-}
-
-.btn-big:hover { background: var(--accent-dark); }
-.btn-big:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.join-btns {
-  display: flex;
-  gap: 10px;
-}
-
-.btn-back {
-  padding: 14px 20px;
-  border: 2px solid var(--border);
-  border-radius: 14px;
-  cursor: pointer;
-  background: var(--surface);
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text-muted);
-  transition: all 0.15s;
-}
-
-.btn-back:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.form-error {
-  padding: 8px 12px;
-  background: #fef0ef;
-  border: 2px solid var(--red);
-  border-radius: 10px;
-  font-size: 13px;
-  color: var(--red);
-  text-align: center;
-}
-
-/* Divider */
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin: 32px 0;
-}
-
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-}
-
-.divider span {
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-/* Host section */
-.host-card {
-  background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: 20px;
-  padding: 24px;
-  text-align: center;
-}
-
-.host-card h3 {
-  margin: 0 0 4px;
-  font-size: 18px;
-}
-
-.host-desc {
-  color: var(--text-muted);
-  font-size: 13px;
-  margin: 0 0 16px;
-}
-
-.tab-row {
-  display: flex;
-  gap: 4px;
-  background: var(--bg);
-  border-radius: 12px;
-  padding: 4px;
-  margin-bottom: 16px;
-}
-
-.tab {
-  flex: 1;
-  padding: 8px;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--text-muted);
-  transition: all 0.15s;
-}
-
-.tab.active {
-  background: var(--surface);
-  color: var(--accent-dark);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.form-input {
-  padding: 10px 14px;
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  font-size: 14px;
-  background: var(--bg);
-  width: 100%;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.btn-host {
-  padding: 10px 20px;
-  border: 2px solid var(--accent);
-  border-radius: 12px;
-  cursor: pointer;
-  background: transparent;
-  color: var(--accent);
-  font-weight: 600;
-  font-size: 14px;
-  transition: all 0.15s;
-}
-
-.btn-host:hover {
-  background: var(--accent);
-  color: white;
-}
-
-.btn-host:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Logged in host */
-.host-logged-in {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.host-user {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-  font-size: 15px;
-}
-
-.btn-text {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.dashboard-link {
-  width: 100%;
-}
-
-/* Footer */
-.landing-footer {
-  text-align: center;
-  padding: 28px 0 12px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.landing-footer p { margin: 0; }
-</style>

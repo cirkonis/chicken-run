@@ -2,6 +2,7 @@
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
+  modules: ["@nuxtjs/tailwindcss"],
 
   // Expose Supabase URL + anon key to the client (safe — anon key is public)
   runtimeConfig: {

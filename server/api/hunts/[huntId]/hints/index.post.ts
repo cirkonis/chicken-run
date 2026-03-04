@@ -1,10 +1,10 @@
 import { defineEventHandler, readBody, getRouterParam, createError } from "h3";
-import { getUserClient, requireUser } from "../../../../utils/supabase";
+import { getUserClient } from "../../../../utils/supabase";
 
 // POST /api/hunts/:huntId/hints — add a hint
 // Body: { text: "Check the place near the river!" }
 export default defineEventHandler(async (event) => {
-  const userId = await requireUser(event);
+  const userId = event.context.userId!;
   const huntId = getRouterParam(event, "huntId");
   const supabase = getUserClient(event);
 
@@ -35,5 +35,12 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  return { hint: data };
+  return {
+    hint: {
+      id: data.id,
+      text: data.text,
+      authorId: data.author_id,
+      createdAt: data.created_at,
+    },
+  };
 });

@@ -1,5 +1,5 @@
 import { defineEventHandler, getRouterParam, createError } from "h3";
-import { getUserClient, requireUser } from "../../../../utils/supabase";
+import { getUserClient } from "../../../../utils/supabase";
 
 // ── Places API types ────────────────────────────────────────
 type PlaceNewResult = {
@@ -169,7 +169,6 @@ async function searchOneCircle(circle: Circle, apiKey: string): Promise<PlaceNew
 // POST /api/hunts/:huntId/bars/search
 // Searches Google Places for bars around the hunt's center, saves them to Supabase
 export default defineEventHandler(async (event) => {
-  const userId = await requireUser(event);
   const huntId = getRouterParam(event, "huntId");
   const supabase = getUserClient(event);
 
@@ -271,22 +270,6 @@ export default defineEventHandler(async (event) => {
     radius: hunt.radius_meters,
     circlesUsed: circles.length,
     count: uniqueBars.length,
-    bars: (savedBars || []).map((b) => ({
-      id: b.id,
-      placeId: b.place_id,
-      name: b.name,
-      address: b.address,
-      lat: b.lat,
-      lng: b.lng,
-      rating: b.rating,
-      ratingsTotal: b.ratings_total,
-      priceLevel: b.price_level,
-      status: b.business_status,
-      mapsUrl: b.maps_url,
-      category: b.category,
-      checkStatus: b.check_status,
-      checkedBy: b.checked_by,
-      checkedAt: b.checked_at,
-    })),
+    bars: (savedBars || []).map(mapBar),
   };
 });

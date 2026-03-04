@@ -1,10 +1,10 @@
 import { defineEventHandler, readBody, createError } from "h3";
-import { getUserClient, requireUser } from "../../utils/supabase";
+import { getUserClient } from "../../utils/supabase";
 
 // POST /api/hunts — create a new hunt
 // Body: { name, centerLat, centerLng, radiusMeters? }
 export default defineEventHandler(async (event) => {
-  const userId = await requireUser(event);
+  const userId = event.context.userId!;
   const supabase = getUserClient(event);
 
   const body = await readBody<{
@@ -60,16 +60,6 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
-    hunt: {
-      id: hunt.id,
-      name: hunt.name,
-      hunterCode: hunt.hunter_code,
-      chickenCode: hunt.chicken_code,
-      centerLat: hunt.center_lat,
-      centerLng: hunt.center_lng,
-      radiusMeters: hunt.radius_meters,
-      status: hunt.status,
-      createdAt: hunt.created_at,
-    },
+    hunt: mapHunt(hunt),
   };
 });
