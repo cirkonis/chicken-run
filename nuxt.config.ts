@@ -3,6 +3,19 @@ export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
 
+  // Expose Supabase URL + anon key to the client (safe — anon key is public)
+  runtimeConfig: {
+    // Server-only (never sent to client)
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+    googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || "",
+
+    // Client-accessible (exposed via useRuntimeConfig())
+    public: {
+      supabaseUrl: process.env.SUPABASE_URL || "",
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
+    },
+  },
+
   app: {
     head: {
       title: "Chicken Run",
