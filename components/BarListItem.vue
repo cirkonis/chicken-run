@@ -22,13 +22,13 @@
           class="w-[34px] h-[34px] border-2 rounded-[10px] cursor-pointer bg-surface text-base flex items-center justify-center transition-all opacity-50 hover:opacity-100 hover:scale-110"
           :class="bar.checkStatus === 'checked' ? 'opacity-100 scale-105 border-green bg-[#f0faf4]' : 'border-border'"
           @click="$emit('toggle', bar, 'checked')"
-          title="Mark as visited"
+          :title="labels.checked"
         >&#10003;</button>
         <button
           class="w-[34px] h-[34px] border-2 rounded-[10px] cursor-pointer bg-surface text-base flex items-center justify-center transition-all opacity-50 hover:opacity-100 hover:scale-110"
           :class="bar.checkStatus === 'not_checking' ? 'opacity-100 scale-105 border-gray bg-[#f0f0f0]' : 'border-border'"
           @click="$emit('toggle', bar, 'not_checking')"
-          title="Skip this one"
+          :title="labels.not_checking"
         >&#10005;</button>
       </div>
       <a :href="bar.mapsUrl" target="_blank" rel="noreferrer" class="text-xs no-underline text-accent font-semibold hover:underline">Maps</a>
@@ -39,6 +39,14 @@
 <script setup lang="ts">
 import type { HuntBar } from "~/types";
 
-defineProps<{ bar: HuntBar }>();
+withDefaults(
+  defineProps<{
+    bar: HuntBar;
+    labels?: { checked: string; not_checking: string };
+  }>(),
+  {
+    labels: () => ({ checked: "Mark as visited", not_checking: "Skip this one" }),
+  }
+);
 defineEmits<{ toggle: [bar: HuntBar, target: string] }>();
 </script>

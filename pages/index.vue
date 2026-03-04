@@ -102,6 +102,26 @@
         </div>
       </div>
 
+      <!-- ─── Bar Finder section ────────────────────────── -->
+      <div>
+        <div class="flex items-center gap-4 my-8">
+          <span class="flex-1 h-px bg-border"></span>
+          <span class="text-text-muted text-[13px] font-semibold uppercase tracking-wider">or</span>
+          <span class="flex-1 h-px bg-border"></span>
+        </div>
+
+        <div class="bg-surface border-2 border-border rounded-[20px] p-6 text-center">
+          <h3 class="m-0 mb-1 text-lg">🍺 Just Find a Bar</h3>
+          <p class="text-text-muted text-[13px] m-0 mb-4">No hunt, no team — just find somewhere to drink near you.</p>
+          <NuxtLink
+            to="/bar-finder"
+            class="px-6 py-3.5 border-0 rounded-[14px] cursor-pointer bg-accent text-white font-bold text-base transition-colors text-center no-underline block hover:bg-accent-dark"
+          >
+            Find Bars Nearby
+          </NuxtLink>
+        </div>
+      </div>
+
       <footer class="text-center pt-7 pb-3 text-[13px] text-text-muted">
         <p class="m-0">🐔 Don't be a chicken — check every bar.</p>
       </footer>

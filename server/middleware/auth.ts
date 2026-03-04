@@ -9,6 +9,7 @@ const PUBLIC_ROUTES = [
   "/api/auth/login",
   "/api/auth/refresh",
   "/api/hunts/join-guest",
+  "/api/bars/search",
 ];
 
 export default defineEventHandler(async (event) => {
