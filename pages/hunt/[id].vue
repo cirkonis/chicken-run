@@ -25,26 +25,13 @@
               <template v-if="participants.length > 1"> · {{ participants.length }} hunters</template>
             </span>
           </div>
-          <div class="flex items-start gap-2.5">
-            <div v-if="isCreator">
-              <div class="bg-surface border-2 border-border rounded-[10px] px-3 py-1.5 text-center">
-                <span class="block text-[10px] text-text-muted uppercase tracking-wide">Hunter Code</span>
-                <span class="font-bold text-base tracking-widest text-accent-dark">{{ hunt.hunterCode }}</span>
-              </div>
-            </div>
-            <button class="w-9 h-9 border-2 border-border rounded-full bg-surface cursor-pointer text-lg flex items-center justify-center transition-all shrink-0 hover:border-accent hover:scale-105" @click="showWelcomeModal = true" title="Show instructions">i</button>
+          <div v-if="isCreator" class="bg-surface border-2 border-border rounded-[10px] px-3 py-1.5 text-center">
+            <span class="block text-[10px] text-text-muted uppercase tracking-wide">Hunter Code</span>
+            <span class="font-bold text-base tracking-widest text-accent-dark">{{ hunt.hunterCode }}</span>
           </div>
         </div>
 
-        <div class="flex flex-wrap gap-2.5 items-center">
-          <button
-            class="px-4 py-2 border-0 rounded-xl cursor-pointer bg-accent text-white font-semibold text-sm transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed"
-            :disabled="searching"
-            @click="searchBars"
-          >
-            {{ searching ? "Searching the coop..." : bars.length ? "Re-search bars" : "Hunt bars" }}
-          </button>
-
+        <div class="flex flex-wrap gap-2.5 items-center" v-if="bars.length || participants.length > 1">
           <span class="text-sm text-text-muted" v-if="bars.length">
             <b>{{ bars.length }}</b> bars in the zone
           </span>
@@ -78,21 +65,17 @@
           <HintBox
             :hints="hints"
             :show-when-empty="bars.length > 0"
-            @add-hint="addHint"
           />
 
           <!-- Toolbar -->
           <div class="flex gap-2 items-center mb-2.5" v-if="bars.length">
-            <input v-model="filter" placeholder="Filter bars..." class="flex-1 px-2.5 py-2 border-2 border-border rounded-[10px] text-sm bg-surface focus:outline-none focus:border-accent" />
+            <input v-model="filter" placeholder="Search bars..." class="flex-1 px-2.5 py-2 border-2 border-border rounded-[10px] text-sm bg-surface focus:outline-none focus:border-accent" />
             <select v-model="statusFilter" class="px-2.5 py-2 border-2 border-border rounded-[10px] bg-surface text-[13px]">
               <option value="all">All</option>
               <option value="unchecked">Unchecked</option>
               <option value="checked">Visited</option>
               <option value="not_checking">Skipping</option>
             </select>
-            <button class="px-3 py-1.5 border-2 border-border rounded-[10px] cursor-pointer bg-surface text-xs font-semibold transition-all hover:border-accent hover:text-accent" @click="refreshHunt" :disabled="syncing">
-              {{ syncing ? "Refreshing..." : "Refresh" }}
-            </button>
           </div>
 
           <!-- Stats -->
@@ -101,9 +84,9 @@
           <div v-if="error" class="p-3 border-2 border-red bg-[#fef0ef] rounded-xl text-sm">{{ error }}</div>
 
           <!-- Empty state -->
-          <div v-if="!bars.length && !searching" class="py-8 px-5 border-2 border-dashed border-border rounded-2xl text-center text-text-muted">
+          <div v-if="!bars.length" class="py-8 px-5 border-2 border-dashed border-border rounded-2xl text-center text-text-muted">
             <p class="my-1 text-lg">🐔 The chickens are hiding somewhere...</p>
-            <p class="my-1">Hit "Hunt bars" to search for bars around this hunt's location.</p>
+            <p class="my-1">Waiting for the host to set up the bar list.</p>
           </div>
 
           <!-- Bar list -->
@@ -123,8 +106,6 @@
       </footer>
     </template>
 
-    <!-- Welcome modal -->
-    <WelcomeModal v-model="showWelcomeModal" />
   </div>
 </template>
 
@@ -136,11 +117,11 @@ const huntId = route.params.id as string;
 
 // ── Composables ──────────────────────────────────────────
 const {
-  pageLoading, searching, syncing, error,
+  pageLoading, error,
   hunt, bars, hints, participants,
-  filter, statusFilter, showHintInput, newHint, showWelcomeModal,
+  filter, statusFilter,
   isCreator, statusCounts, filteredBars,
-  loadHunt, searchBars, toggleStatus, addHint, refreshHunt, formatTime,
+  loadHunt, toggleStatus,
   setOnMarkersChanged, startPolling, stopPolling,
 } = useHunt(huntId);
 
@@ -148,8 +129,8 @@ const {
   initMap, paintMarkers, invalidateSize, cleanup,
 } = useMap();
 
-// Wire map repaint into hunt actions
-setOnMarkersChanged(() => paintMarkers(bars.value));
+// Wire map repaint into hunt actions (uses filtered list so map matches the bar list)
+setOnMarkersChanged(() => paintMarkers(filteredBars.value));
 
 // ── Map toggle ───────────────────────────────────────────
 const mapEl = ref<HTMLDivElement | null>(null);
@@ -158,6 +139,9 @@ const mapOpen = ref(true);
 watch(mapOpen, (open) => {
   if (open) nextTick(() => invalidateSize());
 });
+
+// Repaint markers when filters change
+watch(filteredBars, () => paintMarkers(filteredBars.value));
 
 // ── Navigation ───────────────────────────────────────────
 function goBack() {
@@ -177,13 +161,6 @@ onMounted(async () => {
     return;
   }
 
-  // Show welcome modal on first visit
-  const hasSeenWelcome = localStorage.getItem("chickenRunWelcomeSeen");
-  if (!hasSeenWelcome) {
-    showWelcomeModal.value = true;
-    localStorage.setItem("chickenRunWelcomeSeen", "true");
-  }
-
   await loadHunt();
 
   // Init map once the template is rendered (pageLoading is now false)
@@ -194,7 +171,7 @@ onMounted(async () => {
       { lat: hunt.value.centerLat, lng: hunt.value.centerLng },
       hunt.value.radiusMeters
     );
-    paintMarkers(bars.value);
+    paintMarkers(filteredBars.value);
   }
 
   startPolling();
