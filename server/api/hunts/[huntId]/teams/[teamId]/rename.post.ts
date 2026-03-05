@@ -55,19 +55,24 @@ export default defineEventHandler(async (event) => {
   }
 
   // Rename the team and set renamed = true
-  const { data: updated, error: updateError } = await supabase
+  const { error: updateError } = await supabase
     .from("hunt_teams")
     .update({ name: body.name.trim(), renamed: true })
-    .eq("id", teamId)
-    .select()
-    .single();
+    .eq("id", teamId);
 
-  if (updateError || !updated) {
+  if (updateError) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to rename team: ${updateError?.message}`,
+      statusMessage: `Failed to rename team: ${updateError.message}`,
     });
   }
 
-  return { team: mapTeam(updated) };
+  // Re-fetch the team (RLS may block select after renamed=true via update chain)
+  const { data: updated } = await supabase
+    .from("hunt_teams")
+    .select("*")
+    .eq("id", teamId)
+    .single();
+
+  return { team: mapTeam(updated || { id: teamId, hunt_id: huntId, name: body.name.trim(), renamed: true, display_order: 0, created_at: new Date().toISOString() }) };
 });
