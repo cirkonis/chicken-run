@@ -1,11 +1,14 @@
 <template>
   <li
-    class="grid grid-cols-[1fr_auto] gap-2.5 border-2 rounded-[14px] p-3 bg-surface transition-all"
+    class="grid grid-cols-[1fr_auto] gap-2.5 border-2 rounded-[14px] p-3 bg-surface transition-all cursor-pointer"
     :class="{
-      'border-green bg-[#f0faf4] opacity-75': bar.checkStatus === 'checked',
-      'border-gray bg-[#f5f5f5] opacity-50': bar.checkStatus === 'not_checking',
-      'border-border': bar.checkStatus === 'unchecked',
+      'border-accent bg-[#fff8f0] scale-[1.01] shadow-md': selected,
+      'border-green bg-[#f0faf4] opacity-75': !selected && bar.checkStatus === 'checked',
+      'border-gray bg-[#f5f5f5] opacity-50': !selected && bar.checkStatus === 'not_checking',
+      'border-border': !selected && bar.checkStatus === 'unchecked',
     }"
+    :data-bar-id="bar.id"
+    @click="$emit('select', bar)"
   >
     <div>
       <div class="text-[15px] leading-snug">{{ bar.name }}</div>
@@ -21,17 +24,17 @@
         <button
           class="w-[34px] h-[34px] border-2 rounded-[10px] cursor-pointer bg-surface text-base flex items-center justify-center transition-all opacity-50 hover:opacity-100 hover:scale-110"
           :class="bar.checkStatus === 'checked' ? 'opacity-100 scale-105 border-green bg-[#f0faf4]' : 'border-border'"
-          @click="$emit('toggle', bar, 'checked')"
+          @click.stop="$emit('toggle', bar, 'checked')"
           :title="labels.checked"
         >&#10003;</button>
         <button
           class="w-[34px] h-[34px] border-2 rounded-[10px] cursor-pointer bg-surface text-base flex items-center justify-center transition-all opacity-50 hover:opacity-100 hover:scale-110"
           :class="bar.checkStatus === 'not_checking' ? 'opacity-100 scale-105 border-gray bg-[#f0f0f0]' : 'border-border'"
-          @click="$emit('toggle', bar, 'not_checking')"
+          @click.stop="$emit('toggle', bar, 'not_checking')"
           :title="labels.not_checking"
         >&#10005;</button>
       </div>
-      <a :href="bar.mapsUrl" target="_blank" rel="noreferrer" class="text-xs no-underline text-accent font-semibold hover:underline">Maps</a>
+      <a :href="bar.mapsUrl" target="_blank" rel="noreferrer" class="text-xs no-underline text-accent font-semibold hover:underline" @click.stop>Maps</a>
     </div>
   </li>
 </template>
@@ -42,11 +45,16 @@ import type { HuntBar } from "~/types";
 withDefaults(
   defineProps<{
     bar: HuntBar;
+    selected?: boolean;
     labels?: { checked: string; not_checking: string };
   }>(),
   {
+    selected: false,
     labels: () => ({ checked: "Mark as visited", not_checking: "Skip this one" }),
   }
 );
-defineEmits<{ toggle: [bar: HuntBar, target: string] }>();
+defineEmits<{
+  toggle: [bar: HuntBar, target: string];
+  select: [bar: HuntBar];
+}>();
 </script>

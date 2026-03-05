@@ -88,10 +88,17 @@
           </div>
           <div v-show="mapOpen" class="max-w-[800px]">
             <div ref="mapEl" class="h-[420px] w-full rounded-2xl overflow-hidden border-2 border-border max-[900px]:h-[300px]"></div>
-            <div class="flex gap-4 mt-2 px-3 py-2 bg-surface rounded-[10px] border border-border text-xs">
+            <div class="flex gap-4 mt-2 px-3 py-2 bg-surface rounded-[10px] border border-border text-xs items-center">
               <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red"></span> Not visited</span>
               <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-green"></span> Visited</span>
               <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray"></span> Skipping</span>
+              <span class="flex-1"></span>
+              <button
+                class="flex items-center gap-1 px-2.5 py-1 border-2 rounded-lg cursor-pointer text-xs font-semibold transition-all"
+                :class="locationActive ? 'border-blue bg-blue/10 text-blue' : 'border-border bg-surface text-text-muted hover:border-accent hover:text-accent'"
+                @click="toggleUserLocation"
+                title="Show my location"
+              >📍 {{ locationActive ? 'Tracking' : 'My location' }}</button>
             </div>
           </div>
         </section>
@@ -131,7 +138,9 @@
               v-for="b in filteredBars"
               :key="b.id"
               :bar="b"
+              :selected="b.id === selectedBarId"
               @toggle="toggleStatus"
+              @select="onBarSelect"
             />
           </ul>
         </section>
@@ -146,6 +155,8 @@
 </template>
 
 <script setup lang="ts">
+import type { HuntBar } from "~/types";
+
 const route = useRoute();
 const router = useRouter();
 const auth = useAuth();
@@ -163,6 +174,9 @@ const {
 
 const {
   initMap, paintMarkers, invalidateSize, cleanup,
+  highlightBar, clearHighlight, getHighlightedId,
+  setOnMarkerClick,
+  startUserLocation, stopUserLocation,
 } = useMap();
 
 // Wire map repaint into hunt actions (uses filtered list so map matches the bar list)
@@ -178,6 +192,64 @@ watch(mapOpen, (open) => {
 
 // Repaint markers when filters change
 watch(filteredBars, () => paintMarkers(filteredBars.value));
+
+// ── Bar selection / highlight ────────────────────────────
+const selectedBarId = ref<string | null>(null);
+
+// When a map marker is clicked → highlight in list + scroll to it
+setOnMarkerClick((barId: string) => {
+  if (selectedBarId.value === barId) {
+    selectedBarId.value = null;
+    clearHighlight();
+  } else {
+    selectedBarId.value = barId;
+    highlightBar(barId);
+    scrollToBar(barId);
+  }
+});
+
+/** Called when a BarListItem is clicked. */
+function onBarSelect(bar: HuntBar) {
+  if (selectedBarId.value === bar.id) {
+    // Deselect
+    selectedBarId.value = null;
+    clearHighlight();
+  } else {
+    selectedBarId.value = bar.id;
+
+    // Open map if it's closed
+    if (!mapOpen.value) {
+      mapOpen.value = true;
+      nextTick(() => {
+        invalidateSize();
+        highlightBar(bar.id);
+      });
+    } else {
+      highlightBar(bar.id);
+    }
+  }
+}
+
+/** Scroll the bar list item with the given id into view. */
+function scrollToBar(barId: string) {
+  nextTick(() => {
+    const el = document.querySelector(`[data-bar-id="${barId}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}
+
+// ── User location ────────────────────────────────────────
+const locationActive = ref(false);
+
+function toggleUserLocation() {
+  if (locationActive.value) {
+    stopUserLocation();
+    locationActive.value = false;
+  } else {
+    const started = startUserLocation();
+    locationActive.value = started;
+  }
+}
 
 // ── Team rename ──────────────────────────────────────────
 const renaming = ref(false);
@@ -237,3 +309,45 @@ onUnmounted(() => {
   cleanup();
 });
 </script>
+
+<style>
+/* User location blue pulsing dot */
+.user-location-icon {
+  background: none !important;
+  border: none !important;
+}
+.user-location-dot {
+  position: relative;
+  width: 24px;
+  height: 24px;
+}
+.user-location-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background: #4285f4;
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+  z-index: 2;
+}
+.user-location-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  background: rgba(66, 133, 244, 0.25);
+  border-radius: 50%;
+  z-index: 1;
+  animation: location-pulse 2s ease-out infinite;
+}
+@keyframes location-pulse {
+  0% { transform: translate(-50%, -50%) scale(0.8); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+}
+</style>
