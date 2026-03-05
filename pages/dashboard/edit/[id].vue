@@ -153,13 +153,35 @@
           </div>
         </section>
 
+        <!-- Bars -->
+        <section class="bg-surface border-2 border-border rounded-[18px] p-6">
+          <h2 class="m-0 mb-3.5 text-lg">Bars</h2>
+          <div v-if="searchingBars" class="flex items-center gap-2 text-sm text-text-muted">
+            <span class="inline-block w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin"></span>
+            Searching for bars...
+          </div>
+          <template v-else>
+            <p class="text-sm m-0" :class="barCount > 0 ? 'text-green font-semibold' : 'text-text-muted'">
+              {{ barCount > 0 ? `🍺 ${barCount} bars found in the zone` : 'No bars yet — search after setting your location.' }}
+            </p>
+            <button
+              v-if="locationChanged"
+              type="button"
+              class="mt-3 px-5 py-2.5 border-2 border-accent rounded-xl bg-transparent text-accent font-semibold text-sm cursor-pointer transition-all animate-pulse hover:bg-accent hover:text-white"
+              @click="updateBars"
+            >
+              🔄 Update Bars for New Location
+            </button>
+          </template>
+        </section>
+
         <!-- Submit -->
         <div>
           <div v-if="error" class="px-3 py-2 mb-3 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ error }}</div>
           <button
             type="submit"
             class="w-full px-6 py-3.5 border-0 rounded-xl cursor-pointer bg-accent text-white font-bold text-[15px] transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed"
-            :disabled="submitting"
+            :disabled="submitting || searchingBars"
           >
             {{ submitting ? "Saving..." : "💾 Save Changes" }}
           </button>
@@ -194,6 +216,21 @@ const loadError = ref("");
 const error = ref("");
 const submitting = ref(false);
 
+// Bar tracking
+const barCount = ref(0);
+const savedLat = ref("");
+const savedLng = ref("");
+const savedRadius = ref("");
+const searchingBars = ref(false);
+
+const locationChanged = computed(() => {
+  return (
+    lat.value !== savedLat.value ||
+    lng.value !== savedLng.value ||
+    radius.value !== savedRadius.value
+  );
+});
+
 // ── Location picker ──────────────────────────────────────
 const pickerMapEl = ref<HTMLDivElement | null>(null);
 const { initPicker, placePin, updateRadius, cleanupPicker, setOnLocationPicked } = useLocationPicker();
@@ -223,11 +260,47 @@ function removeTeam() {
   }
 }
 
+// ── Update bars ─────────────────────────────────────────
+async function updateBars() {
+  error.value = "";
+  searchingBars.value = true;
+
+  try {
+    // Save the hunt first so DB has the new location
+    await auth.authFetch(`/api/hunts/${huntId}`, {
+      method: "PUT",
+      body: {
+        name: huntName.value.trim(),
+        centerLat: Number(lat.value),
+        centerLng: Number(lng.value),
+        radiusMeters: Number(radius.value) || 1500,
+      },
+    });
+
+    // Now search for bars at the new location
+    const searchRes = await auth.authFetch<{ count: number }>(
+      `/api/hunts/${huntId}/bars/search`,
+      { method: "POST" }
+    );
+
+    barCount.value = searchRes.count;
+
+    // Update saved location to match
+    savedLat.value = lat.value;
+    savedLng.value = lng.value;
+    savedRadius.value = radius.value;
+  } catch (e: any) {
+    error.value = e?.data?.message || e?.message || "Failed to update bars";
+  } finally {
+    searchingBars.value = false;
+  }
+}
+
 // ── Load hunt ────────────────────────────────────────────
 async function loadHunt() {
   loading.value = true;
   try {
-    const res = await auth.authFetch<{ hunt: Hunt; teams: Team[] }>(`/api/hunts/${huntId}`);
+    const res = await auth.authFetch<{ hunt: Hunt; teams: Team[]; bars: any[] }>(`/api/hunts/${huntId}`);
     const h = res.hunt;
 
     huntName.value = h.name;
@@ -236,6 +309,14 @@ async function loadHunt() {
     radius.value = String(h.radiusMeters);
     hunterCode.value = h.hunterCode;
     chickenCode.value = h.chickenCode;
+
+    // Track saved location for change detection
+    savedLat.value = lat.value;
+    savedLng.value = lng.value;
+    savedRadius.value = radius.value;
+
+    // Bar count from loaded bars
+    barCount.value = res.bars?.length || 0;
 
     // Populate teams
     if (res.teams && res.teams.length > 0) {
@@ -265,9 +346,45 @@ async function loadHunt() {
   }
 }
 
+// ── Validation ───────────────────────────────────────────
+function validateTeams(): string | null {
+  for (const team of teams.value) {
+    const emails = team.members
+      .map((m) => m.email.trim().toLowerCase())
+      .filter(Boolean);
+    const seen = new Set<string>();
+    for (const email of emails) {
+      if (seen.has(email)) {
+        return `Duplicate email "${email}" in ${team.name || "a team"}. Each member needs a unique email.`;
+      }
+      seen.add(email);
+    }
+  }
+
+  const allEmails = teams.value.flatMap((t) =>
+    t.members.map((m) => m.email.trim().toLowerCase()).filter(Boolean)
+  );
+  const globalSeen = new Set<string>();
+  for (const email of allEmails) {
+    if (globalSeen.has(email)) {
+      return `Email "${email}" appears in multiple teams. Each person can only be on one team.`;
+    }
+    globalSeen.add(email);
+  }
+
+  return null;
+}
+
 // ── Save ─────────────────────────────────────────────────
 async function saveHunt() {
   error.value = "";
+
+  const validationError = validateTeams();
+  if (validationError) {
+    error.value = validationError;
+    return;
+  }
+
   submitting.value = true;
 
   try {

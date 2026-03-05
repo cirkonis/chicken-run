@@ -65,7 +65,17 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Return the full bar list from DB (includes any previously saved bars with their statuses)
+  // Remove stale bars from old location that aren't in the new search results
+  if (uniqueBars.length > 0) {
+    const newPlaceIds = uniqueBars.map((b) => b.placeId);
+    await supabase
+      .from("hunt_bars")
+      .delete()
+      .eq("hunt_id", huntId)
+      .not("place_id", "in", `(${newPlaceIds.join(",")})`);
+  }
+
+  // Return the full bar list from DB
   const { data: savedBars } = await supabase
     .from("hunt_bars")
     .select("*")

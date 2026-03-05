@@ -11,7 +11,14 @@
         <p class="text-text-muted text-sm mt-1">Set up the hunt, add your teams, and let the games begin.</p>
       </header>
 
-      <form @submit.prevent="createHunt" class="flex flex-col gap-5">
+      <!-- Success state -->
+      <div v-if="created" class="text-center py-16">
+        <p class="text-5xl mb-4">🎉</p>
+        <p class="text-xl font-bold text-accent-dark mb-2">Hunt created!</p>
+        <p class="text-text-muted text-sm">Found <strong>{{ barCount }}</strong> bars nearby. Redirecting...</p>
+      </div>
+
+      <form v-else @submit.prevent="createHunt" class="flex flex-col gap-5">
         <!-- Hunt Details -->
         <section class="bg-surface border-2 border-border rounded-[18px] p-6">
           <h2 class="m-0 mb-3.5 text-lg">Hunt Details</h2>
@@ -136,7 +143,7 @@
             class="w-full px-6 py-3.5 border-0 rounded-xl cursor-pointer bg-accent text-white font-bold text-[15px] transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed"
             :disabled="submitting"
           >
-            {{ submitting ? "Creating..." : "🐔 Create Hunt" }}
+            {{ submitLabel }}
           </button>
         </div>
       </form>
@@ -162,6 +169,14 @@ const teams = ref<{ name: string; members: TeamMemberInput[] }[]>([]);
 // UI state
 const error = ref("");
 const submitting = ref(false);
+const created = ref(false);
+const barCount = ref(0);
+
+const submitLabel = computed(() => {
+  if (!submitting.value) return "🐔 Create Hunt";
+  if (created.value) return "Finding bars...";
+  return "Creating hunt...";
+});
 
 // ── Location picker ──────────────────────────────────────
 const pickerMapEl = ref<HTMLDivElement | null>(null);
@@ -244,7 +259,8 @@ async function createHunt() {
         members: t.members.filter((m) => m.name.trim() && m.email.trim()),
       }));
 
-    await auth.authFetch("/api/hunts", {
+    // 1. Create the hunt
+    const res = await auth.authFetch<{ hunt: any }>("/api/hunts", {
       method: "POST",
       body: {
         name: huntName.value.trim(),
@@ -255,9 +271,22 @@ async function createHunt() {
       },
     });
 
-    router.push("/dashboard");
+    // 2. Auto-search bars
+    const huntId = res.hunt.id;
+    const searchRes = await auth.authFetch<{ count: number }>(
+      `/api/hunts/${huntId}/bars/search`,
+      { method: "POST" }
+    );
+
+    // 3. Show success
+    barCount.value = searchRes.count;
+    created.value = true;
+
+    // 4. Redirect after a brief pause
+    setTimeout(() => router.push("/dashboard"), 1500);
   } catch (e: any) {
     error.value = e?.data?.message || e?.message || "Failed to create hunt";
+    created.value = false;
   } finally {
     submitting.value = false;
   }
