@@ -44,8 +44,8 @@ export interface PlaceBar {
 }
 
 // ── Classification constants ────────────────────────────────
-const BAR_TYPES = new Set(["bar", "bar_and_grill", "pub", "wine_bar", "night_club"]);
-const REAL_BAR_PRIMARY_TYPES = new Set(["bar", "bar_and_grill", "pub", "wine_bar"]);
+const BAR_TYPES = new Set(["bar", "bar_and_grill", "pub", "wine_bar", "night_club", "beer_hall", "beer_garden", "brewpub", "sports_bar"]);
+const REAL_BAR_PRIMARY_TYPES = new Set(["bar", "bar_and_grill", "pub", "wine_bar", "beer_hall", "beer_garden", "brewpub", "sports_bar"]);
 const CAFE_TYPES = new Set(["cafe", "coffee_shop"]);
 const RESTAURANT_TYPES = new Set([
   "restaurant", "fast_food_restaurant", "fine_dining_restaurant",
@@ -197,7 +197,6 @@ async function searchOneCircle(circle: Circle, apiKey: string): Promise<PlaceNew
     },
     body: JSON.stringify({
       includedTypes: ["bar"],
-      excludedTypes: ["hotel", "restaurant", "cafe", "coffee_shop", "lodging"],
       maxResultCount: 20,
       locationRestriction: {
         circle: {
