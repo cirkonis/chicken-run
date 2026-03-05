@@ -4,20 +4,12 @@
     <header class="mb-4">
       <NuxtLink to="/" class="text-[13px] text-accent no-underline font-semibold hover:underline">← Back</NuxtLink>
       <h1 class="mt-1 mb-0 text-2xl text-accent-dark">🍺 Bar Finder</h1>
-      <p class="text-text-muted text-sm mt-1">Just looking for a place to drink? Enter a location and go.</p>
+      <p class="text-text-muted text-sm mt-1">Just looking for a place to drink? Click the map or enter coordinates.</p>
     </header>
 
     <!-- Search form -->
     <section class="bg-surface border-2 border-border rounded-[18px] p-5 mb-4">
       <div class="flex flex-col gap-3">
-        <button
-          class="px-5 py-3 border-2 border-accent rounded-xl cursor-pointer bg-transparent text-accent font-semibold text-sm transition-all hover:bg-accent hover:text-white disabled:opacity-60 disabled:cursor-not-allowed"
-          :disabled="geolocating"
-          @click="useMyLocation"
-        >
-          {{ geolocating ? "Locating..." : "📍 Use my location" }}
-        </button>
-
         <div class="grid grid-cols-3 gap-2">
           <label class="flex flex-col gap-1">
             <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Lat</span>
@@ -37,38 +29,48 @@
           {{ geoError }}
         </div>
 
+        <div class="flex gap-2">
+          <button
+            class="flex-1 px-5 py-3 border-2 border-accent rounded-xl cursor-pointer bg-transparent text-accent font-semibold text-sm transition-all hover:bg-accent hover:text-white disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="geolocating"
+            @click="useMyLocation"
+          >
+            {{ geolocating ? "Locating..." : "📍 Use my location" }}
+          </button>
+          <button
+            class="flex-[2] px-6 py-3 border-0 rounded-xl cursor-pointer bg-accent text-white font-bold text-[15px] transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="searching || !inputLat || !inputLng"
+            @click="doSearch"
+          >
+            {{ searching ? "Searching..." : "🔍 Find Bars" }}
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Map (always visible) -->
+    <section class="mb-4">
+      <div class="flex gap-2 mb-2.5 items-center">
         <button
-          class="px-6 py-3 border-0 rounded-xl cursor-pointer bg-accent text-white font-bold text-[15px] transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed"
-          :disabled="searching"
-          @click="doSearch"
+          class="flex items-center gap-1.5 px-4 py-2 border-2 border-border rounded-xl cursor-pointer bg-surface text-sm font-semibold transition-all hover:border-accent hover:text-accent"
+          @click="mapOpen = !mapOpen"
         >
-          {{ searching ? "Searching..." : "🔍 Find Bars" }}
+          {{ mapOpen ? "Hide map" : "Show map" }}
         </button>
+        <span class="text-xs text-text-muted italic">Click the map to set your location</span>
+      </div>
+      <div v-show="mapOpen" class="max-w-[800px]">
+        <div ref="mapEl" class="h-[420px] w-full rounded-2xl overflow-hidden border-2 border-border max-[900px]:h-[300px]"></div>
+        <div v-if="hasSearched" class="flex gap-4 mt-2 px-3 py-2 bg-surface rounded-[10px] border border-border text-xs">
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red"></span> Unchecked</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-green"></span> Maybe</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray"></span> No thanks</span>
+        </div>
       </div>
     </section>
 
     <!-- Results (only shown after first search) -->
     <template v-if="hasSearched">
-      <!-- Map -->
-      <section class="mb-4">
-        <div class="flex gap-2 mb-2.5">
-          <button
-            class="flex items-center gap-1.5 px-4 py-2 border-2 border-border rounded-xl cursor-pointer bg-surface text-sm font-semibold transition-all hover:border-accent hover:text-accent"
-            @click="mapOpen = !mapOpen"
-          >
-            {{ mapOpen ? "Hide map" : "Show map" }}
-          </button>
-        </div>
-        <div v-show="mapOpen" class="max-w-[800px]">
-          <div ref="mapEl" class="h-[420px] w-full rounded-2xl overflow-hidden border-2 border-border max-[900px]:h-[300px]"></div>
-          <div class="flex gap-4 mt-2 px-3 py-2 bg-surface rounded-[10px] border border-border text-xs">
-            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red"></span> Unchecked</span>
-            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-green"></span> Maybe</span>
-            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray"></span> No thanks</span>
-          </div>
-        </div>
-      </section>
-
       <section>
         <!-- Toolbar -->
         <div class="flex gap-2 items-center mb-2.5" v-if="bars.length">
@@ -122,29 +124,80 @@ const {
   searchBars, toggleStatus, setOnMarkersChanged,
 } = useBarFinder();
 
-const { initMap, paintMarkers, invalidateSize, cleanup } = useMap();
+const { initPicker, placePin, updateRadius, invalidatePickerSize, getMap, cleanupPicker, setOnLocationPicked } = useLocationPicker();
 
-// Wire map repaint into bar-finder actions
-setOnMarkersChanged(() => paintMarkers(filteredBars.value));
+// We use useMap only for painting bar markers onto the picker map
+const { $L } = useNuxtApp();
+let markersLayer: L.LayerGroup | null = null;
 
-// ── Map toggle ───────────────────────────────────────────
+function paintBarMarkers() {
+  const map = getMap();
+  if (!map || !$L) return;
+
+  if (!markersLayer) {
+    markersLayer = $L.layerGroup().addTo(map);
+  }
+  markersLayer.clearLayers();
+
+  for (const b of filteredBars.value) {
+    const symbol =
+      b.checkStatus === "checked" ? "&#10003;"
+        : b.checkStatus === "not_checking" ? "&#10005;"
+          : "?";
+    const color =
+      b.checkStatus === "checked" ? "#27ae60"
+        : b.checkStatus === "not_checking" ? "#95a5a6"
+          : "#e74c3c";
+
+    const icon = $L.divIcon({
+      html: `<div style="font-size:14px;text-align:center;background:${color};color:white;border-radius:50%;width:28px;height:28px;line-height:28px;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3);">${symbol}</div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+      className: "bar-icon",
+    });
+
+    const m = $L.marker([b.lat, b.lng], { icon }).addTo(markersLayer);
+    m.bindPopup(`<b>${b.name}</b><br/>${b.address}<br/><a href="${b.mapsUrl}" target="_blank" rel="noreferrer">Open in Maps</a>`);
+  }
+}
+
+// Wire composable callbacks
+setOnMarkersChanged(() => paintBarMarkers());
+
+// ── Map ──────────────────────────────────────────────────
 const mapEl = ref<HTMLDivElement | null>(null);
 const mapOpen = ref(true);
 
 watch(mapOpen, (open) => {
-  if (open) nextTick(() => invalidateSize());
+  if (open) nextTick(() => invalidatePickerSize());
 });
 
 // Repaint markers when filters change
-watch(filteredBars, () => paintMarkers(filteredBars.value));
+watch(filteredBars, () => paintBarMarkers());
 
 // ── Search form ──────────────────────────────────────────
-const inputLat = ref("");
-const inputLng = ref("");
+const DEFAULT_LAT = "55.678831";
+const DEFAULT_LNG = "12.579570";
+
+const inputLat = ref(DEFAULT_LAT);
+const inputLng = ref(DEFAULT_LNG);
 const inputRadius = ref("1500");
 const geolocating = ref(false);
 const geoError = ref("");
 const hasSearched = ref(false);
+
+// When map is clicked, update the form inputs
+setOnLocationPicked((lat, lng) => {
+  inputLat.value = lat.toFixed(6);
+  inputLng.value = lng.toFixed(6);
+  updateRadius(parseInt(inputRadius.value) || 1500);
+});
+
+// When radius input changes, update the circle preview
+watch(inputRadius, (val) => {
+  const r = parseInt(val) || 1500;
+  updateRadius(r);
+});
 
 function useMyLocation() {
   if (!navigator.geolocation) {
@@ -159,9 +212,13 @@ function useMyLocation() {
       inputLat.value = pos.coords.latitude.toFixed(6);
       inputLng.value = pos.coords.longitude.toFixed(6);
       geolocating.value = false;
+      // Move the pin + recenter map
+      placePin(pos.coords.latitude, pos.coords.longitude);
+      updateRadius(parseInt(inputRadius.value) || 1500);
+      getMap()?.setView([pos.coords.latitude, pos.coords.longitude], 14);
     },
     () => {
-      geoError.value = "Could not get your location. Please enter it manually.";
+      geoError.value = "Could not get your location. Click the map instead!";
       geolocating.value = false;
     },
     { enableHighAccuracy: true, timeout: 10000 }
@@ -174,7 +231,7 @@ async function doSearch() {
   const rad = parseInt(inputRadius.value) || 1500;
 
   if (isNaN(lat) || isNaN(lng)) {
-    geoError.value = "Please enter valid coordinates or use your location";
+    geoError.value = "Please set a location on the map first";
     return;
   }
 
@@ -182,16 +239,24 @@ async function doSearch() {
   hasSearched.value = true;
   await searchBars(lat, lng, rad);
 
-  // Initialize or re-center map after search completes
-  await nextTick();
-  if (center.value && mapEl.value) {
-    initMap(mapEl.value, center.value, searchRadius.value);
-    paintMarkers(filteredBars.value);
-  }
+  // Re-center map and update radius overlay
+  placePin(lat, lng);
+  updateRadius(rad);
+  getMap()?.setView([lat, lng], 14);
 }
 
 // ── Lifecycle ────────────────────────────────────────────
+onMounted(() => {
+  nextTick(() => {
+    if (mapEl.value) {
+      const lat = parseFloat(inputLat.value) || 55.678831;
+      const lng = parseFloat(inputLng.value) || 12.579570;
+      initPicker(mapEl.value, { lat, lng }, parseInt(inputRadius.value) || 1500);
+    }
+  });
+});
+
 onUnmounted(() => {
-  cleanup();
+  cleanupPicker();
 });
 </script>

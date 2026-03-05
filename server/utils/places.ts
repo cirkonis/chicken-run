@@ -121,9 +121,10 @@ function isNightclub(primaryType?: string, openHour?: number | null): boolean {
 // a single circle misses bars once there are more than 20 in range. We tile the
 // search area with overlapping sub-circles to overcome this limit.
 //
-//  ≤ 300m  →  1 circle   (1 API call)   — small area, 20-cap is fine
-//  ≤ 800m  →  7 circles  (7 API calls)  — center + ring of 6
-//  > 800m  → 19 circles  (19 API calls) — center + inner ring of 6 + outer ring of 12
+// Tiers (concentric ring pattern: 1 → 1+6 → 1+6+12 → 1+6+12+18):
+//  ≤ 300m  →  7 circles  ( 7 API calls) — center + ring of 6
+//  ≤ 800m  → 19 circles  (19 API calls) — center + ring of 6 + ring of 12
+//  > 800m  → 37 circles  (37 API calls) — center + ring of 6 + ring of 12 + ring of 18
 //
 // Max allowed radius is 3000m (capped in endpoints, not here).
 
@@ -145,13 +146,8 @@ function generateSearchCircles(lat: number, lng: number, radius: number): Circle
     }
   }
 
-  // Small: single circle is enough
+  // Small (≤300m): center + ring of 6 = 7 circles
   if (radius <= 300) {
-    return [{ latitude: lat, longitude: lng, radius }];
-  }
-
-  // Medium: center + ring of 6 (7 circles)
-  if (radius <= 800) {
     const subRadius = radius * 0.55;
     const offset = radius * 0.5;
     const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius }];
@@ -159,13 +155,26 @@ function generateSearchCircles(lat: number, lng: number, radius: number): Circle
     return circles;
   }
 
-  // Large: center + inner ring of 6 + outer ring of 12 (19 circles)
-  const subRadius = radius * 0.35;
-  const innerOffset = radius * 0.38;
-  const outerOffset = radius * 0.75;
+  // Medium (≤800m): center + ring of 6 + ring of 12 = 19 circles
+  if (radius <= 800) {
+    const subRadius = radius * 0.35;
+    const innerOffset = radius * 0.38;
+    const outerOffset = radius * 0.75;
+    const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius }];
+    addRing(circles, 6, innerOffset, subRadius);
+    addRing(circles, 12, outerOffset, subRadius);
+    return circles;
+  }
+
+  // Large (>800m): center + ring of 6 + ring of 12 + ring of 18 = 37 circles
+  const subRadius = radius * 0.25;
+  const ring1Offset = radius * 0.28;
+  const ring2Offset = radius * 0.55;
+  const ring3Offset = radius * 0.80;
   const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius }];
-  addRing(circles, 6, innerOffset, subRadius);
-  addRing(circles, 12, outerOffset, subRadius);
+  addRing(circles, 6, ring1Offset, subRadius);
+  addRing(circles, 12, ring2Offset, subRadius);
+  addRing(circles, 18, ring3Offset, subRadius);
   return circles;
 }
 

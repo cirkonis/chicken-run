@@ -39,6 +39,12 @@
               <input v-model="newRadius" inputmode="numeric" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" />
             </label>
           </div>
+          <!-- Location picker map -->
+          <div>
+            <span class="text-xs text-text-muted italic">Click the map to set the hunt center</span>
+            <div ref="pickerMapEl" class="h-[280px] w-full rounded-xl overflow-hidden border-2 border-border mt-1.5"></div>
+          </div>
+
           <div v-if="createError" class="px-3 py-2 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ createError }}</div>
           <button type="submit" class="px-6 py-3 border-0 rounded-xl cursor-pointer bg-accent text-white font-bold text-[15px] transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed" :disabled="creating">
             {{ creating ? "Creating..." : "🐔 Create Hunt" }}
@@ -93,11 +99,40 @@ const creating = ref(false);
 
 const showCopied = ref(false);
 
+// ── Location picker ──────────────────────────────────────
+const pickerMapEl = ref<HTMLDivElement | null>(null);
+const { initPicker, placePin, updateRadius, cleanupPicker, setOnLocationPicked } = useLocationPicker();
+
+// When map is clicked, update the form inputs
+setOnLocationPicked((lat, lng) => {
+  newLat.value = lat.toFixed(6);
+  newLng.value = lng.toFixed(6);
+  updateRadius(parseInt(newRadius.value) || 1500);
+});
+
+// When radius input changes, update the circle preview
+watch(newRadius, (val) => {
+  const r = parseInt(val) || 1500;
+  updateRadius(r);
+});
+
 onMounted(() => {
   auth.restore();
   if (auth.isHost.value) {
     loadHunts();
   }
+  // Init picker map
+  nextTick(() => {
+    if (pickerMapEl.value) {
+      const lat = parseFloat(newLat.value) || 55.678831;
+      const lng = parseFloat(newLng.value) || 12.579570;
+      initPicker(pickerMapEl.value, { lat, lng }, parseInt(newRadius.value) || 1500);
+    }
+  });
+});
+
+onUnmounted(() => {
+  cleanupPicker();
 });
 
 async function loadHunts() {
