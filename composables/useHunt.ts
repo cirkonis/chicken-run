@@ -2,7 +2,7 @@
  * Composable: all hunt state, data loading, actions, polling, and filtering.
  * Pulls ~300 lines of logic out of pages/hunt/[id].vue.
  */
-import type { Hunt, HuntBar, Hint, Participant } from "~/types";
+import type { Hunt, HuntBar, Hint, Participant, Team } from "~/types";
 
 const POLL_INTERVAL = 30_000;
 
@@ -19,6 +19,7 @@ export function useHunt(huntId: string) {
   const bars = ref<HuntBar[]>([]);
   const hints = ref<Hint[]>([]);
   const participants = ref<Participant[]>([]);
+  const teams = ref<Team[]>([]);
 
   // UI state
   const filter = ref("");
@@ -31,6 +32,15 @@ export function useHunt(huntId: string) {
   const isCreator = computed(
     () => hunt.value?.creatorId === auth.state.user?.id
   );
+
+  /** The current user's team (if any) */
+  const myTeam = computed(() => {
+    const userId = auth.state.user?.id;
+    if (!userId) return null;
+    const myParticipant = participants.value.find((p) => p.userId === userId);
+    if (!myParticipant?.teamId) return null;
+    return teams.value.find((t) => t.id === myParticipant.teamId) ?? null;
+  });
 
   const statusCounts = computed(() => {
     let unchecked = 0,
@@ -74,6 +84,7 @@ export function useHunt(huntId: string) {
       bars.value = res.bars;
       hints.value = res.hints;
       participants.value = res.participants;
+      teams.value = res.teams || [];
       pageLoading.value = false;
     } catch (e: any) {
       error.value = e?.data?.message || e?.message || "Failed to load hunt";
@@ -146,6 +157,24 @@ export function useHunt(huntId: string) {
     }
   }
 
+  async function renameTeam(teamId: string, newName: string) {
+    try {
+      const res = await auth.authFetch<any>(
+        `/api/hunts/${huntId}/teams/${teamId}/rename`,
+        { method: "POST", body: { name: newName } }
+      );
+      // Update local teams state
+      const idx = teams.value.findIndex((t) => t.id === teamId);
+      if (idx >= 0) {
+        teams.value[idx] = res.team;
+      }
+      return res.team;
+    } catch (e: any) {
+      error.value = e?.data?.message || e?.message || "Failed to rename team";
+      throw e;
+    }
+  }
+
   async function refreshHunt() {
     syncing.value = true;
     try {
@@ -178,11 +207,12 @@ export function useHunt(huntId: string) {
       }
       if (changed) onMarkersChanged?.();
 
-      // Merge hints & participants
+      // Merge hints & participants & teams
       if (res.hints.length !== hints.value.length) {
         hints.value = res.hints;
       }
       participants.value = res.participants;
+      teams.value = res.teams || [];
     } catch {
       // Silent — polling failures are non-critical
     }
@@ -221,6 +251,7 @@ export function useHunt(huntId: string) {
     bars,
     hints,
     participants,
+    teams,
     filter,
     statusFilter,
     showHintInput,
@@ -229,6 +260,7 @@ export function useHunt(huntId: string) {
 
     // Computed
     isCreator,
+    myTeam,
     statusCounts,
     filteredBars,
 
@@ -237,6 +269,7 @@ export function useHunt(huntId: string) {
     searchBars,
     toggleStatus,
     addHint,
+    renameTeam,
     refreshHunt,
     formatTime,
     setOnMarkersChanged,

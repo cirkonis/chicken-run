@@ -2,22 +2,22 @@ import { defineEventHandler, readBody, createError } from "h3";
 import { getAdminClient } from "../../utils/supabase";
 
 // POST /api/hunts/join-guest
-// Body: { code: "ABC123", nickname: "Dave" }
-// Creates a guest user behind the scenes, joins the hunt, returns a session.
-// No account needed from the player's perspective.
+// Body: { code: "ABC123", email: "player@example.com" }
+// Matches email to a pre-registered team member, creates a guest user, joins the hunt.
+// Falls back to allowing any email if the hunt has no teams (backward compat).
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ code: string; nickname: string }>(event);
+  const body = await readBody<{ code: string; email: string }>(event);
 
   if (!body?.code?.trim()) {
     throw createError({ statusCode: 400, statusMessage: "Hunt code is required" });
   }
 
-  if (!body?.nickname?.trim()) {
-    throw createError({ statusCode: 400, statusMessage: "Nickname is required" });
+  if (!body?.email?.trim()) {
+    throw createError({ statusCode: 400, statusMessage: "Email is required" });
   }
 
   const code = body.code.trim().toUpperCase();
-  const nickname = body.nickname.trim();
+  const email = body.email.trim().toLowerCase();
   const admin = getAdminClient();
 
   // 1. Validate the hunt code exists before creating a user
@@ -35,7 +35,36 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // 2. Create a guest user with a generated email
+  // 2. Check if this hunt has teams
+  const { data: teams } = await admin
+    .from("hunt_teams")
+    .select("id")
+    .eq("hunt_id", huntCheck.id)
+    .limit(1);
+
+  const huntHasTeams = teams && teams.length > 0;
+
+  // 3. If hunt has teams, verify the email is registered as a team member
+  let memberName = email.split("@")[0]; // fallback display name
+  if (huntHasTeams) {
+    const { data: member } = await admin
+      .from("hunt_team_members")
+      .select("name, team_id, hunt_teams!inner(hunt_id)")
+      .eq("hunt_teams.hunt_id", huntCheck.id)
+      .eq("email", email)
+      .single();
+
+    if (!member) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: "Email not registered for this hunt. Ask your host to add you to a team.",
+      });
+    }
+
+    memberName = member.name;
+  }
+
+  // 4. Create a guest user with a generated email (not their real email, to avoid conflicts)
   const guestId = crypto.randomUUID().slice(0, 8);
   const guestEmail = `guest_${guestId}@chickenrun.guest`;
   const guestPassword = crypto.randomUUID(); // random, they'll never need it
@@ -46,8 +75,9 @@ export default defineEventHandler(async (event) => {
       password: guestPassword,
       email_confirm: true,
       user_metadata: {
-        display_name: nickname,
+        display_name: memberName,
         is_guest: true,
+        real_email: email, // store their real email for reference
       },
     });
 
@@ -58,7 +88,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // 3. Sign them in to get a session
+  // 5. Sign them in to get a session
   const { data: session, error: signInError } =
     await admin.auth.signInWithPassword({
       email: guestEmail,
@@ -72,12 +102,13 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // 4. Join the hunt
+  // 6. Join the hunt (pass email so join_hunt_by_code can match team)
   const { data: joinResult, error: joinError } = await admin.rpc(
     "join_hunt_by_code",
     {
       p_code: code,
       p_user_id: newUser.user.id,
+      p_email: email,
     }
   );
 
@@ -91,7 +122,7 @@ export default defineEventHandler(async (event) => {
   return {
     user: {
       id: newUser.user.id,
-      displayName: nickname,
+      displayName: memberName,
       isGuest: true,
     },
     session: {
@@ -102,5 +133,7 @@ export default defineEventHandler(async (event) => {
     huntId: joinResult.hunt_id,
     huntName: joinResult.hunt_name,
     role: joinResult.role,
+    teamId: joinResult.team_id,
+    teamName: joinResult.team_name,
   };
 });

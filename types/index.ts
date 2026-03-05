@@ -10,11 +10,42 @@ export interface Hunt {
   status: "active" | "completed" | "archived";
   creatorId: string;
   createdAt: string;
+  teams?: Team[];
 }
 
 /** Hunt with the current user's role (used in dashboard list) */
 export interface HuntWithRole extends Hunt {
   role: string;
+}
+
+// ── Team ─────────────────────────────────────────────────
+export interface Team {
+  id: string;
+  huntId: string;
+  name: string;
+  renamed: boolean;
+  displayOrder: number;
+  createdAt: string;
+  members?: TeamMember[];
+}
+
+export interface TeamMember {
+  id: string;
+  teamId: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
+/** Used when creating/editing a hunt (input from host) */
+export interface TeamInput {
+  name: string;
+  members: TeamMemberInput[];
+}
+
+export interface TeamMemberInput {
+  name: string;
+  email: string;
 }
 
 // ── Bar ──────────────────────────────────────────────────
@@ -52,6 +83,8 @@ export interface Participant {
   displayName: string;
   avatarUrl?: string;
   joinedAt?: string;
+  teamId?: string;
+  teamName?: string;
 }
 
 // ── Auth ─────────────────────────────────────────────────

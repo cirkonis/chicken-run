@@ -30,25 +30,25 @@
           </button>
         </div>
 
-        <!-- Step 2: Enter nickname -->
-        <div v-if="joinStep === 'nickname'" class="flex flex-col gap-3">
+        <!-- Step 2: Enter email -->
+        <div v-if="joinStep === 'email'" class="flex flex-col gap-3">
           <div class="flex items-center justify-center gap-2 p-2.5 bg-[#f0faf4] border-2 border-green rounded-[10px] text-sm">
             <span class="text-text-muted">Joining:</span>
-            <span class="font-bold text-green">{{ foundHuntName }}</span>
+            <span class="font-bold text-green">{{ foundHuntName || 'Hunt' }}</span>
           </div>
+          <p class="text-text-muted text-[13px] m-0">Enter the email your host registered you with.</p>
           <input
-            ref="nicknameInput"
-            v-model="nickname"
-            type="text"
-            placeholder="Your nickname"
+            ref="emailInput"
+            v-model="joinEmail"
+            type="email"
+            placeholder="your@email.com"
             class="px-5 py-3.5 border-[3px] border-border rounded-[14px] text-lg font-semibold text-center bg-bg focus:outline-none focus:border-accent"
-            maxlength="24"
             @keyup.enter="joinAsGuest"
           />
           <div v-if="joinError" class="px-3 py-2 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ joinError }}</div>
           <div class="flex gap-2.5">
             <button class="px-5 py-3.5 border-2 border-border rounded-[14px] cursor-pointer bg-surface font-semibold text-sm text-text-muted transition-all hover:border-accent hover:text-accent" @click="joinStep = 'code'">← Back</button>
-            <button class="px-6 py-3.5 border-0 rounded-[14px] cursor-pointer bg-accent text-white font-bold text-base transition-colors text-center no-underline block hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed" :disabled="joinLoading" @click="joinAsGuest">
+            <button class="flex-1 px-6 py-3.5 border-0 rounded-[14px] cursor-pointer bg-accent text-white font-bold text-base transition-colors text-center no-underline block hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed" :disabled="joinLoading" @click="joinAsGuest">
               {{ joinLoading ? "Joining..." : "Let's Hunt!" }}
             </button>
           </div>
@@ -134,13 +134,13 @@ const auth = useAuth();
 const router = useRouter();
 
 // ── Join flow ─────────────────────────────────────────────
-const joinStep = ref<"code" | "nickname">("code");
+const joinStep = ref<"code" | "email">("code");
 const joinCode = ref("");
-const nickname = ref("");
+const joinEmail = ref("");
 const joinError = ref("");
 const joinLoading = ref(false);
 const foundHuntName = ref("");
-const nicknameInput = ref<HTMLInputElement | null>(null);
+const emailInput = ref<HTMLInputElement | null>(null);
 
 // If user is already a guest with an active session, redirect to hunt
 onMounted(() => {
@@ -158,13 +158,10 @@ async function validateCode() {
   joinLoading.value = true;
 
   try {
-    // Quick check — try to find the hunt name via a lightweight endpoint
-    // We'll use the full join-guest endpoint but that creates a user...
-    // Instead, let's just move to nickname step and validate on submit
-    // For now, skip to nickname step (validation happens on join)
-    foundHuntName.value = ""; // will be filled after join
-    joinStep.value = "nickname";
-    nextTick(() => nicknameInput.value?.focus());
+    // Move to email step (full validation happens on join)
+    foundHuntName.value = "";
+    joinStep.value = "email";
+    nextTick(() => emailInput.value?.focus());
   } finally {
     joinLoading.value = false;
   }
@@ -172,10 +169,10 @@ async function validateCode() {
 
 async function joinAsGuest() {
   const code = joinCode.value.trim();
-  const nick = nickname.value.trim();
+  const emailVal = joinEmail.value.trim();
 
-  if (!nick) {
-    joinError.value = "Pick a nickname!";
+  if (!emailVal) {
+    joinError.value = "Enter your email address";
     return;
   }
 
@@ -185,7 +182,7 @@ async function joinAsGuest() {
   try {
     const res = await $fetch<any>("/api/hunts/join-guest", {
       method: "POST",
-      body: { code, nickname: nick },
+      body: { code, email: emailVal },
     });
 
     // Store the session
@@ -203,7 +200,7 @@ async function joinAsGuest() {
   } catch (e: any) {
     joinError.value = e?.data?.message || e?.message || "Failed to join hunt";
     // If code was bad, go back to code step
-    if (joinError.value.toLowerCase().includes("invalid")) {
+    if (joinError.value.toLowerCase().includes("invalid hunt code")) {
       joinStep.value = "code";
     }
   } finally {

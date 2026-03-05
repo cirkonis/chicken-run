@@ -33,13 +33,21 @@
       <span>{{ formatDate(hunt.createdAt) }}</span>
     </div>
 
-    <!-- Enter button -->
-    <NuxtLink
-      :to="`/hunt/${hunt.id}`"
-      class="block text-center py-2.5 border-2 border-accent rounded-xl text-accent font-semibold text-sm no-underline transition-all hover:bg-accent hover:text-white"
-    >
-      Enter Hunt →
-    </NuxtLink>
+    <!-- Action buttons -->
+    <div class="flex gap-2">
+      <NuxtLink
+        :to="`/hunt/${hunt.id}`"
+        class="flex-1 block text-center py-2.5 border-2 border-accent rounded-xl text-accent font-semibold text-sm no-underline transition-all hover:bg-accent hover:text-white"
+      >
+        Enter Hunt →
+      </NuxtLink>
+      <NuxtLink
+        :to="`/dashboard/edit/${hunt.id}`"
+        class="px-4 py-2.5 border-2 border-border rounded-xl text-text-muted font-semibold text-sm no-underline transition-all hover:border-accent hover:text-accent"
+      >
+        Edit
+      </NuxtLink>
+    </div>
   </div>
 </template>
 

@@ -1,7 +1,7 @@
 import { defineEventHandler, getRouterParam, createError } from "h3";
 import { getUserClient } from "../../utils/supabase";
 
-// GET /api/hunts/:huntId — get a single hunt with bars, hints, participants
+// GET /api/hunts/:huntId — get a single hunt with bars, hints, participants, teams
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId!;
   const huntId = getRouterParam(event, "huntId");
@@ -25,8 +25,8 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Fetch bars, hints, and participants in parallel
-  const [barsResult, hintsResult, participantsResult] = await Promise.all([
+  // Fetch bars, hints, participants, and teams in parallel
+  const [barsResult, hintsResult, participantsResult, teamsResult] = await Promise.all([
     supabase
       .from("hunt_bars")
       .select("*")
@@ -39,8 +39,13 @@ export default defineEventHandler(async (event) => {
       .order("created_at", { ascending: false }),
     supabase
       .from("hunt_participants")
-      .select("user_id, role, joined_at, profiles(display_name, avatar_url)")
+      .select("user_id, role, joined_at, team_id, profiles(display_name, avatar_url), hunt_teams(name)")
       .eq("hunt_id", huntId),
+    supabase
+      .from("hunt_teams")
+      .select("*, hunt_team_members(*)")
+      .eq("hunt_id", huntId)
+      .order("display_order"),
   ]);
 
   return {
@@ -48,5 +53,6 @@ export default defineEventHandler(async (event) => {
     bars: (barsResult.data || []).map(mapBar),
     hints: (hintsResult.data || []).map(mapHint),
     participants: (participantsResult.data || []).map(mapParticipant),
+    teams: (teamsResult.data || []).map(mapTeam),
   };
 });

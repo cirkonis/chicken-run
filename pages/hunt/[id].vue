@@ -22,6 +22,7 @@
             <h1 class="m-0 text-2xl text-accent-dark">🐔 {{ hunt.name }}</h1>
             <span class="text-sm text-text-muted italic">
               Playing as <strong>{{ auth.state.user?.displayName || 'Unknown' }}</strong>
+              <template v-if="myTeam"> · Team: <strong>{{ myTeam.name }}</strong></template>
               <template v-if="participants.length > 1"> · {{ participants.length }} hunters</template>
             </span>
           </div>
@@ -29,6 +30,41 @@
             <span class="block text-[10px] text-text-muted uppercase tracking-wide">Hunter Code</span>
             <span class="font-bold text-base tracking-widest text-accent-dark">{{ hunt.hunterCode }}</span>
           </div>
+        </div>
+
+        <!-- Team rename banner (one-time, for team members) -->
+        <div
+          v-if="myTeam && !myTeam.renamed && !isCreator"
+          class="flex items-center gap-2 px-4 py-3 bg-[#fff8e1] border-2 border-chicken-yellow rounded-xl mb-3"
+        >
+          <template v-if="!renaming">
+            <span class="text-sm flex-1">
+              🏷️ Your team is <strong>{{ myTeam.name }}</strong> — want to pick a name?
+            </span>
+            <button
+              class="px-3 py-1.5 border-2 border-accent rounded-lg bg-transparent text-accent text-xs font-semibold cursor-pointer transition-all hover:bg-accent hover:text-white"
+              @click="renaming = true"
+            >Rename</button>
+          </template>
+          <template v-else>
+            <input
+              v-model="newTeamName"
+              type="text"
+              placeholder="New team name"
+              class="flex-1 px-3 py-2 border-2 border-border rounded-lg text-sm bg-surface focus:outline-none focus:border-accent"
+              maxlength="40"
+              @keyup.enter="doRenameTeam"
+            />
+            <button
+              class="px-3 py-1.5 border-2 border-accent rounded-lg bg-accent text-white text-xs font-semibold cursor-pointer transition-all hover:bg-accent-dark disabled:opacity-60"
+              :disabled="renamingLoading || !newTeamName.trim()"
+              @click="doRenameTeam"
+            >{{ renamingLoading ? '...' : 'Save' }}</button>
+            <button
+              class="px-3 py-1.5 border-2 border-border rounded-lg bg-surface text-text-muted text-xs cursor-pointer hover:border-accent"
+              @click="renaming = false"
+            >Cancel</button>
+          </template>
         </div>
 
         <div class="flex flex-wrap gap-2.5 items-center" v-if="bars.length || participants.length > 1">
@@ -118,10 +154,10 @@ const huntId = route.params.id as string;
 // ── Composables ──────────────────────────────────────────
 const {
   pageLoading, error,
-  hunt, bars, hints, participants,
+  hunt, bars, hints, participants, teams,
   filter, statusFilter,
-  isCreator, statusCounts, filteredBars,
-  loadHunt, toggleStatus,
+  isCreator, myTeam, statusCounts, filteredBars,
+  loadHunt, toggleStatus, renameTeam,
   setOnMarkersChanged, startPolling, stopPolling,
 } = useHunt(huntId);
 
@@ -142,6 +178,25 @@ watch(mapOpen, (open) => {
 
 // Repaint markers when filters change
 watch(filteredBars, () => paintMarkers(filteredBars.value));
+
+// ── Team rename ──────────────────────────────────────────
+const renaming = ref(false);
+const newTeamName = ref("");
+const renamingLoading = ref(false);
+
+async function doRenameTeam() {
+  if (!myTeam.value || !newTeamName.value.trim()) return;
+  renamingLoading.value = true;
+  try {
+    await renameTeam(myTeam.value.id, newTeamName.value.trim());
+    renaming.value = false;
+    newTeamName.value = "";
+  } catch {
+    // error handled by composable
+  } finally {
+    renamingLoading.value = false;
+  }
+}
 
 // ── Navigation ───────────────────────────────────────────
 function goBack() {
