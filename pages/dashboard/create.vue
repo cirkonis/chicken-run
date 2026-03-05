@@ -192,9 +192,47 @@ function removeTeam() {
   }
 }
 
+// ── Validation ───────────────────────────────────────────
+function validateTeams(): string | null {
+  for (const team of teams.value) {
+    const emails = team.members
+      .map((m) => m.email.trim().toLowerCase())
+      .filter(Boolean);
+    const seen = new Set<string>();
+    for (const email of emails) {
+      if (seen.has(email)) {
+        return `Duplicate email "${email}" in ${team.name || "a team"}. Each member needs a unique email.`;
+      }
+      seen.add(email);
+    }
+  }
+
+  // Check across all teams too
+  const allEmails = teams.value.flatMap((t) =>
+    t.members.map((m) => m.email.trim().toLowerCase()).filter(Boolean)
+  );
+  const globalSeen = new Set<string>();
+  for (const email of allEmails) {
+    if (globalSeen.has(email)) {
+      return `Email "${email}" appears in multiple teams. Each person can only be on one team.`;
+    }
+    globalSeen.add(email);
+  }
+
+  return null;
+}
+
 // ── Submit ───────────────────────────────────────────────
 async function createHunt() {
   error.value = "";
+
+  // Validate before submitting
+  const validationError = validateTeams();
+  if (validationError) {
+    error.value = validationError;
+    return;
+  }
+
   submitting.value = true;
 
   try {
