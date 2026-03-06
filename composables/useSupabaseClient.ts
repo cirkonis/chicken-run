@@ -3,26 +3,41 @@
  *
  * Only used to trigger Google OAuth redirect. Session management
  * stays in useAuth — we parse the callback hash ourselves.
+ *
+ * Client is created lazily (on first signInWithGoogle call) to avoid
+ * throwing during SSR or component setup when config isn't available yet.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let _client: SupabaseClient | null = null;
 
-export function useSupabaseClient() {
-  if (!_client && import.meta.client) {
-    const config = useRuntimeConfig();
-    _client = createClient(config.public.supabaseUrl, config.public.supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      },
-    });
+function getClient(): SupabaseClient {
+  if (_client) return _client;
+
+  const config = useRuntimeConfig();
+  const url = config.public.supabaseUrl;
+  const key = config.public.supabaseAnonKey;
+
+  if (!url || !key) {
+    throw new Error("Missing Supabase config — check SUPABASE_URL and SUPABASE_ANON_KEY env vars");
   }
 
+  _client = createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+
+  return _client;
+}
+
+export function useSupabaseClient() {
   async function signInWithGoogle() {
-    if (!_client) throw new Error("Supabase client not available on server");
-    const { error } = await _client.auth.signInWithOAuth({
+    if (!import.meta.client) throw new Error("OAuth can only be triggered in the browser");
+    const client = getClient();
+    const { error } = await client.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: window.location.origin,
