@@ -4,7 +4,7 @@
  * are available in all server API handlers without importing.
  */
 
-import type { Hunt, HuntWithRole, HuntBar, Hint, Participant, Team, TeamMember } from "~/types";
+import type { Hunt, HuntWithRole, HuntBar, Hint, Participant, Team, TeamMember, HuntChicken } from "~/types";
 
 export function mapHunt(row: Record<string, any>): Hunt {
   return {
@@ -86,6 +86,16 @@ export function mapTeamMember(row: Record<string, any>): TeamMember {
   return {
     id: row.id,
     teamId: row.team_id,
+    name: row.name,
+    email: row.email,
+    createdAt: row.created_at,
+  };
+}
+
+export function mapChicken(row: Record<string, any>): HuntChicken {
+  return {
+    id: row.id,
+    huntId: row.hunt_id,
     name: row.name,
     email: row.email,
     createdAt: row.created_at,

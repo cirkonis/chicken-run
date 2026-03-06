@@ -135,6 +135,65 @@
           </div>
         </section>
 
+        <!-- Chickens -->
+        <section class="bg-[#fffde7] border-2 border-chicken-yellow rounded-[18px] p-6">
+          <div class="flex justify-between items-center mb-3.5">
+            <h2 class="m-0 text-lg">Chickens</h2>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="w-8 h-8 flex items-center justify-center border-2 border-chicken-yellow rounded-lg bg-white text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed"
+                :disabled="chickens.length <= 0"
+                @click="removeChicken"
+              >−</button>
+              <span class="text-sm font-semibold min-w-[80px] text-center">{{ chickens.length }} chicken{{ chickens.length !== 1 ? 's' : '' }}</span>
+              <button
+                type="button"
+                class="w-8 h-8 flex items-center justify-center border-2 border-chicken-yellow rounded-lg bg-white text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent"
+                @click="addChicken"
+              >+</button>
+            </div>
+          </div>
+
+          <p v-if="chickens.length === 0" class="text-text-muted text-sm m-0">
+            No chickens — anyone with the chicken code can join as prey. Add chickens to control who can play.
+          </p>
+
+          <div v-else class="flex flex-col gap-2">
+            <div
+              v-for="(chicken, ci) in chickens"
+              :key="ci"
+              class="flex gap-2 items-center"
+            >
+              <input
+                v-model="chicken.name"
+                type="text"
+                placeholder="Name"
+                class="flex-1 px-2.5 py-2 border-2 border-chicken-yellow rounded-lg text-sm bg-white focus:outline-none focus:border-accent"
+              />
+              <input
+                v-model="chicken.email"
+                type="email"
+                placeholder="email@example.com"
+                class="flex-[2] px-2.5 py-2 border-2 border-chicken-yellow rounded-lg text-sm bg-white focus:outline-none focus:border-accent"
+              />
+              <button
+                type="button"
+                class="px-2 py-1.5 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red"
+                @click="chickens.splice(ci, 1)"
+                title="Remove chicken"
+              >✕</button>
+            </div>
+            <button
+              type="button"
+              class="self-start px-3 py-1.5 border-2 border-dashed border-chicken-yellow rounded-lg bg-transparent text-xs text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
+              @click="addChicken"
+            >
+              + Add another chicken
+            </button>
+          </div>
+        </section>
+
         <!-- Submit -->
         <div>
           <div v-if="error" class="px-3 py-2 mb-3 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ error }}</div>
@@ -152,7 +211,7 @@
 </template>
 
 <script setup lang="ts">
-import type { TeamInput, TeamMemberInput } from "~/types";
+import type { TeamInput, TeamMemberInput, ChickenInput } from "~/types";
 
 const auth = useAuth();
 const router = useRouter();
@@ -165,6 +224,9 @@ const radius = ref("1500");
 
 // Teams
 const teams = ref<{ name: string; members: TeamMemberInput[] }[]>([]);
+
+// Chickens
+const chickens = ref<{ name: string; email: string }[]>([]);
 
 // UI state
 const error = ref("");
@@ -207,8 +269,20 @@ function removeTeam() {
   }
 }
 
+// ── Chicken helpers ──────────────────────────────────────
+function addChicken() {
+  chickens.value.push({ name: "", email: "" });
+}
+
+function removeChicken() {
+  if (chickens.value.length > 0) {
+    chickens.value.pop();
+  }
+}
+
 // ── Validation ───────────────────────────────────────────
-function validateTeams(): string | null {
+function validateForm(): string | null {
+  // Validate team emails (no duplicates within or across teams)
   for (const team of teams.value) {
     const emails = team.members
       .map((m) => m.email.trim().toLowerCase())
@@ -222,16 +296,34 @@ function validateTeams(): string | null {
     }
   }
 
-  // Check across all teams too
-  const allEmails = teams.value.flatMap((t) =>
+  const allTeamEmails = teams.value.flatMap((t) =>
     t.members.map((m) => m.email.trim().toLowerCase()).filter(Boolean)
   );
   const globalSeen = new Set<string>();
-  for (const email of allEmails) {
+  for (const email of allTeamEmails) {
     if (globalSeen.has(email)) {
       return `Email "${email}" appears in multiple teams. Each person can only be on one team.`;
     }
     globalSeen.add(email);
+  }
+
+  // Validate chicken emails (no duplicates)
+  const chickenEmails = chickens.value
+    .map((c) => c.email.trim().toLowerCase())
+    .filter(Boolean);
+  const chickenSeen = new Set<string>();
+  for (const email of chickenEmails) {
+    if (chickenSeen.has(email)) {
+      return `Duplicate chicken email "${email}". Each chicken needs a unique email.`;
+    }
+    chickenSeen.add(email);
+  }
+
+  // Check no overlap between hunter and chicken emails
+  for (const email of chickenEmails) {
+    if (globalSeen.has(email)) {
+      return `Email "${email}" is in both a team and the chicken list. A person can't be both a hunter and a chicken.`;
+    }
   }
 
   return null;
@@ -242,7 +334,7 @@ async function createHunt() {
   error.value = "";
 
   // Validate before submitting
-  const validationError = validateTeams();
+  const validationError = validateForm();
   if (validationError) {
     error.value = validationError;
     return;
@@ -259,6 +351,10 @@ async function createHunt() {
         members: t.members.filter((m) => m.name.trim() && m.email.trim()),
       }));
 
+    // Build chickens payload (filter out empty entries)
+    const chickensPayload: ChickenInput[] = chickens.value
+      .filter((c) => c.name.trim() && c.email.trim());
+
     // 1. Create the hunt
     const res = await auth.authFetch<{ hunt: any }>("/api/hunts", {
       method: "POST",
@@ -268,6 +364,7 @@ async function createHunt() {
         centerLng: Number(lng.value),
         radiusMeters: Number(radius.value) || 1500,
         teams: teamsPayload.length > 0 ? teamsPayload : undefined,
+        chickens: chickensPayload.length > 0 ? chickensPayload : undefined,
       },
     });
 

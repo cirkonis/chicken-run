@@ -48,6 +48,21 @@ export interface TeamMemberInput {
   email: string;
 }
 
+// ── Chicken (pre-registered prey player) ────────────────
+export interface HuntChicken {
+  id: string;
+  huntId: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
+/** Used when creating/editing a hunt (input from host) */
+export interface ChickenInput {
+  name: string;
+  email: string;
+}
+
 // ── Bar ──────────────────────────────────────────────────
 export interface HuntBar {
   id: string;

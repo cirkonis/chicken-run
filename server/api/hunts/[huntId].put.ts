@@ -1,9 +1,9 @@
 import { defineEventHandler, getRouterParam, readBody, createError } from "h3";
 import { getUserClient } from "../../utils/supabase";
-import type { TeamInput } from "~/types";
+import type { TeamInput, ChickenInput } from "~/types";
 
 // PUT /api/hunts/:huntId — edit an existing hunt (creator only)
-// Body: { name?, centerLat?, centerLng?, radiusMeters?, teams?: TeamInput[] }
+// Body: { name?, centerLat?, centerLng?, radiusMeters?, teams?: TeamInput[], chickens?: ChickenInput[] }
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId!;
   const huntId = getRouterParam(event, "huntId");
@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
     centerLng?: number;
     radiusMeters?: number;
     teams?: TeamInput[];
+    chickens?: ChickenInput[];
   }>(event);
 
   // Verify this hunt exists and user is the creator
@@ -121,7 +122,45 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Re-fetch the full hunt with teams for the response
+  // Replace chickens if provided (delete all existing, re-insert)
+  if (body.chickens !== undefined) {
+    // Delete existing chickens
+    const { error: deleteChickensError } = await supabase
+      .from("hunt_chickens")
+      .delete()
+      .eq("hunt_id", huntId);
+
+    if (deleteChickensError) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: `Failed to clear existing chickens: ${deleteChickensError.message}`,
+      });
+    }
+
+    // Insert new chickens
+    const chickensToInsert = (body.chickens || [])
+      .filter((c) => c.name.trim() && c.email.trim())
+      .map((c) => ({
+        hunt_id: huntId,
+        name: c.name.trim(),
+        email: c.email.trim().toLowerCase(),
+      }));
+
+    if (chickensToInsert.length > 0) {
+      const { error: chickensError } = await supabase
+        .from("hunt_chickens")
+        .insert(chickensToInsert);
+
+      if (chickensError) {
+        throw createError({
+          statusCode: 500,
+          statusMessage: `Failed to add chickens: ${chickensError.message}`,
+        });
+      }
+    }
+  }
+
+  // Re-fetch the full hunt with teams and chickens for the response
   const { data: updatedHunt } = await supabase
     .from("hunts")
     .select("*")

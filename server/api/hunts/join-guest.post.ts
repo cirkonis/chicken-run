@@ -20,13 +20,34 @@ export default defineEventHandler(async (event) => {
   const email = body.email.trim().toLowerCase();
   const admin = getAdminClient();
 
-  // 1. Validate the hunt code exists before creating a user
-  const { data: huntCheck } = await admin
+  // 1. Validate the hunt code exists and determine role before creating a user
+  //    Check hunter_code first, then chicken_code
+  let huntCheck: { id: string; name: string } | null = null;
+  let joiningAs: "hunter" | "chicken" = "hunter";
+
+  const { data: hunterMatch } = await admin
     .from("hunts")
     .select("id, name")
-    .or(`hunter_code.eq.${code},chicken_code.eq.${code}`)
+    .eq("hunter_code", code)
     .eq("status", "active")
     .single();
+
+  if (hunterMatch) {
+    huntCheck = hunterMatch;
+    joiningAs = "hunter";
+  } else {
+    const { data: chickenMatch } = await admin
+      .from("hunts")
+      .select("id, name")
+      .eq("chicken_code", code)
+      .eq("status", "active")
+      .single();
+
+    if (chickenMatch) {
+      huntCheck = chickenMatch;
+      joiningAs = "chicken";
+    }
+  }
 
   if (!huntCheck) {
     throw createError({
@@ -35,33 +56,59 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // 2. Check if this hunt has teams
-  const { data: teams } = await admin
-    .from("hunt_teams")
-    .select("id")
-    .eq("hunt_id", huntCheck.id)
-    .limit(1);
-
-  const huntHasTeams = teams && teams.length > 0;
-
-  // 3. If hunt has teams, verify the email is registered as a team member
+  // 2. Validate email against pre-registered list based on role
   let memberName = email.split("@")[0]; // fallback display name
-  if (huntHasTeams) {
-    const { data: member } = await admin
-      .from("hunt_team_members")
-      .select("name, team_id, hunt_teams!inner(hunt_id)")
-      .eq("hunt_teams.hunt_id", huntCheck.id)
-      .eq("email", email)
-      .single();
 
-    if (!member) {
-      throw createError({
-        statusCode: 404,
-        statusMessage: "Email not registered for this hunt. Ask your host to add you to a team.",
-      });
+  if (joiningAs === "hunter") {
+    // Check if hunt has teams — if so, email must match a team member
+    const { data: teams } = await admin
+      .from("hunt_teams")
+      .select("id")
+      .eq("hunt_id", huntCheck.id)
+      .limit(1);
+
+    if (teams && teams.length > 0) {
+      const { data: member } = await admin
+        .from("hunt_team_members")
+        .select("name, team_id, hunt_teams!inner(hunt_id)")
+        .eq("hunt_teams.hunt_id", huntCheck.id)
+        .eq("email", email)
+        .single();
+
+      if (!member) {
+        throw createError({
+          statusCode: 404,
+          statusMessage: "Email not registered for this hunt. Ask your host to add you to a team.",
+        });
+      }
+
+      memberName = member.name;
     }
+  } else {
+    // Chicken: check if hunt has pre-registered chickens — if so, email must match
+    const { data: chickens } = await admin
+      .from("hunt_chickens")
+      .select("id")
+      .eq("hunt_id", huntCheck.id)
+      .limit(1);
 
-    memberName = member.name;
+    if (chickens && chickens.length > 0) {
+      const { data: chicken } = await admin
+        .from("hunt_chickens")
+        .select("name")
+        .eq("hunt_id", huntCheck.id)
+        .eq("email", email)
+        .single();
+
+      if (!chicken) {
+        throw createError({
+          statusCode: 404,
+          statusMessage: "Email not registered as a chicken for this hunt. Ask your host to add you.",
+        });
+      }
+
+      memberName = chicken.name;
+    }
   }
 
   // 4. Create a guest user with a generated email (not their real email, to avoid conflicts)

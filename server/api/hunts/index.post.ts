@@ -1,9 +1,9 @@
 import { defineEventHandler, readBody, createError } from "h3";
 import { getUserClient } from "../../utils/supabase";
-import type { TeamInput } from "~/types";
+import type { TeamInput, ChickenInput } from "~/types";
 
-// POST /api/hunts — create a new hunt (optionally with teams)
-// Body: { name, centerLat, centerLng, radiusMeters?, teams?: TeamInput[] }
+// POST /api/hunts — create a new hunt (optionally with teams and chickens)
+// Body: { name, centerLat, centerLng, radiusMeters?, teams?: TeamInput[], chickens?: ChickenInput[] }
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId!;
   const supabase = getUserClient(event);
@@ -14,6 +14,7 @@ export default defineEventHandler(async (event) => {
     centerLng: number;
     radiusMeters?: number;
     teams?: TeamInput[];
+    chickens?: ChickenInput[];
   }>(event);
 
   if (!body?.name || body.centerLat == null || body.centerLng == null) {
@@ -106,6 +107,30 @@ export default defineEventHandler(async (event) => {
       }
 
       teams.push(team);
+    }
+  }
+
+  // Create chickens if provided
+  if (body.chickens && body.chickens.length > 0) {
+    const chickensToInsert = body.chickens
+      .filter((c) => c.name.trim() && c.email.trim())
+      .map((c) => ({
+        hunt_id: hunt.id,
+        name: c.name.trim(),
+        email: c.email.trim().toLowerCase(),
+      }));
+
+    if (chickensToInsert.length > 0) {
+      const { error: chickensError } = await supabase
+        .from("hunt_chickens")
+        .insert(chickensToInsert);
+
+      if (chickensError) {
+        throw createError({
+          statusCode: 500,
+          statusMessage: `Failed to add chickens: ${chickensError.message}`,
+        });
+      }
     }
   }
 

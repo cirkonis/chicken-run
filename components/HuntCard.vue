@@ -7,13 +7,14 @@
         class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold uppercase tracking-wide"
         :class="{
           'bg-[#e8f5e9] text-green': hunt.status === 'active',
-          'bg-[#f5f5f5] text-gray': hunt.status !== 'active',
+          'bg-[#e3f2fd] text-[#1976d2]': hunt.status === 'completed',
+          'bg-[#f5f5f5] text-gray': hunt.status === 'archived',
         }"
       >{{ hunt.status }}</span>
     </div>
 
-    <!-- Codes -->
-    <div class="grid grid-cols-2 gap-2 mb-3">
+    <!-- Codes (stacked) -->
+    <div class="flex flex-col gap-2 mb-3">
       <div class="flex items-center gap-1.5 px-3 py-2.5 bg-bg border-2 border-border rounded-[10px]">
         <span class="text-[10px] text-text-muted whitespace-nowrap">Hunter Code</span>
         <span class="font-extrabold text-base tracking-[2px] text-accent-dark flex-1">{{ hunt.hunterCode }}</span>
@@ -33,21 +34,13 @@
       <span>{{ formatDate(hunt.createdAt) }}</span>
     </div>
 
-    <!-- Action buttons -->
-    <div class="flex gap-2">
-      <NuxtLink
-        :to="`/hunt/${hunt.id}`"
-        class="flex-1 block text-center py-2.5 border-2 border-accent rounded-xl text-accent font-semibold text-sm no-underline transition-all hover:bg-accent hover:text-white"
-      >
-        Enter Hunt →
-      </NuxtLink>
-      <NuxtLink
-        :to="`/dashboard/edit/${hunt.id}`"
-        class="px-4 py-2.5 border-2 border-border rounded-xl text-text-muted font-semibold text-sm no-underline transition-all hover:border-accent hover:text-accent"
-      >
-        Edit
-      </NuxtLink>
-    </div>
+    <!-- Manage button -->
+    <NuxtLink
+      :to="`/dashboard/edit/${hunt.id}`"
+      class="block text-center py-2.5 border-2 border-accent rounded-xl text-accent font-semibold text-sm no-underline transition-all hover:bg-accent hover:text-white"
+    >
+      Manage Hunt →
+    </NuxtLink>
   </div>
 </template>
 
@@ -55,7 +48,9 @@
 import type { HuntWithRole } from "~/types";
 
 defineProps<{ hunt: HuntWithRole }>();
-defineEmits<{ copy: [code: string] }>();
+defineEmits<{
+  copy: [code: string];
+}>();
 
 function formatDate(iso: string): string {
   try {
