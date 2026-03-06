@@ -11,9 +11,15 @@ export function useLocationPicker() {
 
   /** Callback fired when user clicks the map. */
   let onLocationPicked: ((lat: number, lng: number) => void) | null = null;
+  let pickingEnabled = true;
 
   function setOnLocationPicked(fn: (lat: number, lng: number) => void) {
     onLocationPicked = fn;
+  }
+
+  /** Enable or disable location picking on map click. */
+  function setPickingEnabled(enabled: boolean) {
+    pickingEnabled = enabled;
   }
 
   /** Initialise the picker map inside `el`, centered on `center`. */
@@ -27,8 +33,9 @@ export function useLocationPicker() {
         attribution: "&copy; OpenStreetMap contributors",
       }).addTo(map);
 
-      // Click to pick location
+      // Click to pick location (only when picking is enabled)
       map.on("click", (e: L.LeafletMouseEvent) => {
+        if (!pickingEnabled) return;
         placePin(e.latlng.lat, e.latlng.lng);
         onLocationPicked?.(e.latlng.lat, e.latlng.lng);
       });
@@ -111,5 +118,6 @@ export function useLocationPicker() {
     getMap,
     cleanupPicker,
     setOnLocationPicked,
+    setPickingEnabled,
   };
 }

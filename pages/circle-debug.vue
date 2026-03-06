@@ -81,6 +81,14 @@
         <span class="w-3 h-3 rounded-full border-2" style="border-color: #e74c3c; background: rgba(231, 76, 60, 0.15)"></span>
         Ring 3 (18)
       </span>
+      <span class="flex items-center gap-1.5">
+        <span class="w-3 h-3 rounded-full border-2" style="border-color: #f39c12; background: rgba(243, 156, 18, 0.15)"></span>
+        Ring 4 (24)
+      </span>
+      <span class="flex items-center gap-1.5">
+        <span class="w-3 h-3 rounded-full border-2" style="border-color: #1abc9c; background: rgba(26, 188, 156, 0.15)"></span>
+        Ring 5 (30)
+      </span>
     </div>
 
     <!-- Map -->
@@ -103,7 +111,7 @@ const geolocating = ref(false);
 const circleInfo = ref<{ count: number; tier: string; subRadius: number } | null>(null);
 
 // ── Geometry (mirrored from server/utils/places.ts) ──────
-type Circle = { latitude: number; longitude: number; radius: number; ring: "center" | "ring1" | "ring2" | "ring3" };
+type Circle = { latitude: number; longitude: number; radius: number; ring: "center" | "ring1" | "ring2" | "ring3" | "ring4" | "ring5" };
 
 function generateSearchCircles(lat: number, lng: number, radius: number): Circle[] {
   const earthRadius = 6371000;
@@ -122,35 +130,52 @@ function generateSearchCircles(lat: number, lng: number, radius: number): Circle
     }
   }
 
-  // Small (≤300m): center + ring of 6 = 7 circles
+  // Tier 1 — Tiny (≤300m): center + 6 = 7 circles
   if (radius <= 300) {
     const subRadius = radius * 0.55;
-    const offset = radius * 0.5;
     const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius, ring: "center" }];
-    addRing(circles, 6, offset, subRadius, "ring1");
+    addRing(circles, 6, radius * 0.5, subRadius, "ring1");
     return circles;
   }
 
-  // Medium (≤800m): center + ring of 6 + ring of 12 = 19 circles
-  if (radius <= 800) {
-    const subRadius = radius * 0.35;
-    const innerOffset = radius * 0.38;
-    const outerOffset = radius * 0.75;
+  // Tier 2 — Small (≤600m): center + 6 + 12 = 19 circles
+  if (radius <= 600) {
+    const subRadius = radius * 0.4;
     const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius, ring: "center" }];
-    addRing(circles, 6, innerOffset, subRadius, "ring1");
-    addRing(circles, 12, outerOffset, subRadius, "ring2");
+    addRing(circles, 6, radius * 0.38, subRadius, "ring1");
+    addRing(circles, 12, radius * 0.75, subRadius, "ring2");
     return circles;
   }
 
-  // Large (>800m): center + ring of 6 + ring of 12 + ring of 18 = 37 circles
-  const subRadius = radius * 0.25;
-  const ring1Offset = radius * 0.28;
-  const ring2Offset = radius * 0.55;
-  const ring3Offset = radius * 0.80;
+  // Tier 3 — Medium (≤1000m): center + 6 + 12 + 18 = 37 circles
+  if (radius <= 1000) {
+    const subRadius = radius * 0.3;
+    const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius, ring: "center" }];
+    addRing(circles, 6, radius * 0.28, subRadius, "ring1");
+    addRing(circles, 12, radius * 0.55, subRadius, "ring2");
+    addRing(circles, 18, radius * 0.82, subRadius, "ring3");
+    return circles;
+  }
+
+  // Tier 4 — Large (≤1500m): center + 6 + 12 + 18 + 24 = 61 circles
+  if (radius <= 1500) {
+    const subRadius = radius * 0.24;
+    const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius, ring: "center" }];
+    addRing(circles, 6, radius * 0.20, subRadius, "ring1");
+    addRing(circles, 12, radius * 0.40, subRadius, "ring2");
+    addRing(circles, 18, radius * 0.60, subRadius, "ring3");
+    addRing(circles, 24, radius * 0.80, subRadius, "ring4");
+    return circles;
+  }
+
+  // Tier 5 — Full game (≤2000m): center + 6 + 12 + 18 + 24 + 30 = 91 circles
+  const subRadius = radius * 0.2;
   const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius, ring: "center" }];
-  addRing(circles, 6, ring1Offset, subRadius, "ring1");
-  addRing(circles, 12, ring2Offset, subRadius, "ring2");
-  addRing(circles, 18, ring3Offset, subRadius, "ring3");
+  addRing(circles, 6, radius * 0.17, subRadius, "ring1");
+  addRing(circles, 12, radius * 0.34, subRadius, "ring2");
+  addRing(circles, 18, radius * 0.51, subRadius, "ring3");
+  addRing(circles, 24, radius * 0.68, subRadius, "ring4");
+  addRing(circles, 30, radius * 0.85, subRadius, "ring5");
   return circles;
 }
 
@@ -209,11 +234,13 @@ function drawCircles() {
   // Generate and draw sub-circles
   const circles = generateSearchCircles(lat, lng, radius);
 
-  const colors = {
+  const colors: Record<string, { color: string }> = {
     center: { color: "#3498db" },
     ring1:  { color: "#27ae60" },
     ring2:  { color: "#9b59b6" },
     ring3:  { color: "#e74c3c" },
+    ring4:  { color: "#f39c12" },
+    ring5:  { color: "#1abc9c" },
   };
 
   circles.forEach((c, i) => {
@@ -239,9 +266,19 @@ function drawCircles() {
   });
 
   // Update info
-  const tier = radius <= 300 ? "Small (7)" : radius <= 800 ? "Medium (19)" : "Large (37)";
+  const tierNames: Record<number, string> = {
+    7: "Tiny (7)",
+    19: "Small (19)",
+    37: "Medium (37)",
+    61: "Large (61)",
+    91: "Full (91)",
+  };
   const subRadius = circles[0].radius;
-  circleInfo.value = { count: circles.length, tier, subRadius: Math.round(subRadius) };
+  circleInfo.value = {
+    count: circles.length,
+    tier: tierNames[circles.length] || `Custom (${circles.length})`,
+    subRadius: Math.round(subRadius),
+  };
 
   // Fit bounds to outer circle
   map!.fitBounds(outerCircle.getBounds(), { padding: [30, 30] });

@@ -121,12 +121,15 @@ function isNightclub(primaryType?: string, openHour?: number | null): boolean {
 // a single circle misses bars once there are more than 20 in range. We tile the
 // search area with overlapping sub-circles to overcome this limit.
 //
-// Tiers (concentric ring pattern: 1 → 1+6 → 1+6+12 → 1+6+12+18):
-//  ≤ 300m  →  7 circles  ( 7 API calls) — center + ring of 6
-//  ≤ 800m  → 19 circles  (19 API calls) — center + ring of 6 + ring of 12
-//  > 800m  → 37 circles  (37 API calls) — center + ring of 6 + ring of 12 + ring of 18
+// 5 Tiers (concentric ring pattern, each ring adds more circles):
+//  ≤  300m →   7 circles (  7 API calls) — center + 6
+//  ≤  600m →  19 circles ( 19 API calls) — center + 6 + 12
+//  ≤ 1000m →  37 circles ( 37 API calls) — center + 6 + 12 + 18
+//  ≤ 1500m →  61 circles ( 61 API calls) — center + 6 + 12 + 18 + 24
+//  ≤ 2000m →  91 circles ( 91 API calls) — center + 6 + 12 + 18 + 24 + 30
 //
-// Max allowed radius is 3000m (capped in endpoints, not here).
+// Key principle: ring-to-ring distance < sub-radius → guaranteed overlap.
+// Max allowed radius is 2000m (capped in endpoints, not here).
 
 type Circle = { latitude: number; longitude: number; radius: number };
 
@@ -146,35 +149,52 @@ function generateSearchCircles(lat: number, lng: number, radius: number): Circle
     }
   }
 
-  // Small (≤300m): center + ring of 6 = 7 circles
+  // Tier 1 — Tiny (≤300m): center + 6 = 7 circles
   if (radius <= 300) {
     const subRadius = radius * 0.55;
-    const offset = radius * 0.5;
     const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius }];
-    addRing(circles, 6, offset, subRadius);
+    addRing(circles, 6, radius * 0.5, subRadius);
     return circles;
   }
 
-  // Medium (≤800m): center + ring of 6 + ring of 12 = 19 circles
-  if (radius <= 800) {
-    const subRadius = radius * 0.35;
-    const innerOffset = radius * 0.38;
-    const outerOffset = radius * 0.75;
+  // Tier 2 — Small (≤600m): center + 6 + 12 = 19 circles
+  if (radius <= 600) {
+    const subRadius = radius * 0.4;
     const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius }];
-    addRing(circles, 6, innerOffset, subRadius);
-    addRing(circles, 12, outerOffset, subRadius);
+    addRing(circles, 6, radius * 0.38, subRadius);
+    addRing(circles, 12, radius * 0.75, subRadius);
     return circles;
   }
 
-  // Large (>800m): center + ring of 6 + ring of 12 + ring of 18 = 37 circles
-  const subRadius = radius * 0.25;
-  const ring1Offset = radius * 0.28;
-  const ring2Offset = radius * 0.55;
-  const ring3Offset = radius * 0.80;
+  // Tier 3 — Medium (≤1000m): center + 6 + 12 + 18 = 37 circles
+  if (radius <= 1000) {
+    const subRadius = radius * 0.3;
+    const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius }];
+    addRing(circles, 6, radius * 0.28, subRadius);
+    addRing(circles, 12, radius * 0.55, subRadius);
+    addRing(circles, 18, radius * 0.82, subRadius);
+    return circles;
+  }
+
+  // Tier 4 — Large (≤1500m): center + 6 + 12 + 18 + 24 = 61 circles
+  if (radius <= 1500) {
+    const subRadius = radius * 0.24;
+    const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius }];
+    addRing(circles, 6, radius * 0.20, subRadius);
+    addRing(circles, 12, radius * 0.40, subRadius);
+    addRing(circles, 18, radius * 0.60, subRadius);
+    addRing(circles, 24, radius * 0.80, subRadius);
+    return circles;
+  }
+
+  // Tier 5 — Full game (≤2000m): center + 6 + 12 + 18 + 24 + 30 = 91 circles
+  const subRadius = radius * 0.2;
   const circles: Circle[] = [{ latitude: lat, longitude: lng, radius: subRadius }];
-  addRing(circles, 6, ring1Offset, subRadius);
-  addRing(circles, 12, ring2Offset, subRadius);
-  addRing(circles, 18, ring3Offset, subRadius);
+  addRing(circles, 6, radius * 0.17, subRadius);
+  addRing(circles, 12, radius * 0.34, subRadius);
+  addRing(circles, 18, radius * 0.51, subRadius);
+  addRing(circles, 24, radius * 0.68, subRadius);
+  addRing(circles, 30, radius * 0.85, subRadius);
   return circles;
 }
 

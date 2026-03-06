@@ -57,7 +57,16 @@
         >
           {{ mapOpen ? "Hide map" : "Show map" }}
         </button>
-        <span class="text-xs text-text-muted italic">Click the map to set your location</span>
+        <button
+          class="flex items-center gap-1.5 px-4 py-2 border-2 rounded-xl cursor-pointer text-sm font-semibold transition-all"
+          :class="pickingMode
+            ? 'border-accent bg-accent text-white'
+            : 'border-border bg-surface text-text-muted hover:border-accent hover:text-accent'"
+          @click="togglePickingMode"
+        >
+          📍 {{ pickingMode ? "Picking location..." : "Set location" }}
+        </button>
+        <span v-if="pickingMode" class="text-xs text-accent italic animate-pulse">Click the map to set your location</span>
       </div>
       <div v-show="mapOpen" class="max-w-[800px]">
         <div ref="mapEl" class="h-[420px] w-full rounded-2xl overflow-hidden border-2 border-border max-[900px]:h-[300px]"></div>
@@ -124,7 +133,7 @@ const {
   searchBars, toggleStatus, setOnMarkersChanged,
 } = useBarFinder();
 
-const { initPicker, placePin, updateRadius, invalidatePickerSize, getMap, cleanupPicker, setOnLocationPicked } = useLocationPicker();
+const { initPicker, placePin, updateRadius, invalidatePickerSize, getMap, cleanupPicker, setOnLocationPicked, setPickingEnabled } = useLocationPicker();
 
 // We use useMap only for painting bar markers onto the picker map
 const { $L } = useNuxtApp();
@@ -185,6 +194,12 @@ const inputRadius = ref("1500");
 const geolocating = ref(false);
 const geoError = ref("");
 const hasSearched = ref(false);
+const pickingMode = ref(false);
+
+function togglePickingMode() {
+  pickingMode.value = !pickingMode.value;
+  setPickingEnabled(pickingMode.value);
+}
 
 // When map is clicked, update the form inputs
 setOnLocationPicked((lat, lng) => {
@@ -252,6 +267,7 @@ onMounted(() => {
       const lat = parseFloat(inputLat.value) || 55.678831;
       const lng = parseFloat(inputLng.value) || 12.579570;
       initPicker(mapEl.value, { lat, lng }, parseInt(inputRadius.value) || 1500);
+      setPickingEnabled(false); // Start with picking disabled
     }
   });
 });

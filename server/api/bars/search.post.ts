@@ -13,8 +13,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "lat and lng are required numbers" });
   }
 
-  if (radius < 100 || radius > 3000) {
-    throw createError({ statusCode: 400, statusMessage: "radius must be between 100 and 3000 meters" });
+  if (radius < 100 || radius > 2000) {
+    throw createError({ statusCode: 400, statusMessage: "radius must be between 100 and 2000 meters" });
   }
 
   const config = useRuntimeConfig();
