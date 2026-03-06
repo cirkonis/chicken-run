@@ -37,34 +37,13 @@
           v-if="myTeam && !myTeam.renamed && !isCreator"
           class="flex items-center gap-2 px-4 py-3 bg-[#fff8e1] border-2 border-chicken-yellow rounded-xl mb-3"
         >
-          <template v-if="!renaming">
-            <span class="text-sm flex-1">
-              🏷️ Your team is <strong>{{ myTeam.name }}</strong> — want to pick a name?
-            </span>
-            <button
-              class="px-3 py-1.5 border-2 border-accent rounded-lg bg-transparent text-accent text-xs font-semibold cursor-pointer transition-all hover:bg-accent hover:text-white"
-              @click="renaming = true"
-            >Rename</button>
-          </template>
-          <template v-else>
-            <input
-              v-model="newTeamName"
-              type="text"
-              placeholder="New team name"
-              class="flex-1 px-3 py-2 border-2 border-border rounded-lg text-sm bg-surface focus:outline-none focus:border-accent"
-              maxlength="40"
-              @keyup.enter="doRenameTeam"
-            />
-            <button
-              class="px-3 py-1.5 border-2 border-accent rounded-lg bg-accent text-white text-xs font-semibold cursor-pointer transition-all hover:bg-accent-dark disabled:opacity-60"
-              :disabled="renamingLoading || !newTeamName.trim()"
-              @click="doRenameTeam"
-            >{{ renamingLoading ? '...' : 'Save' }}</button>
-            <button
-              class="px-3 py-1.5 border-2 border-border rounded-lg bg-surface text-text-muted text-xs cursor-pointer hover:border-accent"
-              @click="renaming = false"
-            >Cancel</button>
-          </template>
+          <span class="text-sm flex-1">
+            🏷️ Your team is <strong>{{ myTeam.name }}</strong> — want to pick a name?
+          </span>
+          <button
+            class="px-3 py-1.5 border-2 border-accent rounded-lg bg-transparent text-accent text-xs font-semibold cursor-pointer transition-all hover:bg-accent hover:text-white"
+            @click="renaming = true"
+          >Rename</button>
         </div>
 
         <div class="flex flex-wrap gap-2.5 items-center" v-if="bars.length || participants.length > 1">
@@ -149,6 +128,61 @@
       <footer class="text-center py-5 text-[13px] text-text-muted border-t border-border mt-6">
         <p class="m-0">🐔 Don't be a chicken — check every bar. Or at least the ones that look fun.</p>
       </footer>
+
+      <!-- Team Rename Modal -->
+      <Teleport to="body">
+        <div
+          v-if="renaming"
+          class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] backdrop-blur-sm"
+          @click.self="renaming = false"
+        >
+          <div class="bg-surface rounded-[20px] p-7 w-[380px] max-w-[90vw] shadow-[0_16px_48px_rgba(0,0,0,0.2)]">
+            <div class="text-center mb-5">
+              <div class="text-3xl mb-2">🏷️</div>
+              <div class="text-lg font-bold mb-1">Name your team</div>
+              <p class="text-sm text-text-muted leading-relaxed m-0">
+                This is a <strong>one-time thing</strong> — once you confirm, the name is locked in forever.
+                Make it count! Check the spelling, make it good... no, make it legendary.
+              </p>
+            </div>
+
+            <input
+              ref="renameInput"
+              v-model="newTeamName"
+              type="text"
+              placeholder="Something legendary..."
+              class="w-full px-4 py-3 border-[3px] border-border rounded-xl text-base font-semibold text-center bg-bg focus:outline-none focus:border-accent mb-2"
+              maxlength="40"
+              @keyup.enter="showRenameConfirm = true"
+            />
+            <p class="text-[11px] text-text-muted text-center m-0 mb-4">{{ 40 - newTeamName.length }} characters left</p>
+
+            <div v-if="renameError" class="px-3 py-2 mb-3 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ renameError }}</div>
+
+            <div class="flex gap-2.5">
+              <button
+                class="flex-1 px-4 py-2.5 border-2 border-border rounded-xl cursor-pointer bg-surface text-text-muted font-semibold text-sm transition-all hover:border-accent hover:text-accent"
+                @click="renaming = false; newTeamName = ''"
+              >Never mind</button>
+              <button
+                class="flex-1 px-4 py-2.5 border-0 rounded-xl cursor-pointer bg-accent text-white font-semibold text-sm transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed"
+                :disabled="!newTeamName.trim()"
+                @click="showRenameConfirm = true"
+              >This is the one</button>
+            </div>
+          </div>
+        </div>
+      </Teleport>
+
+      <!-- Rename Confirm Modal -->
+      <ConfirmModal
+        v-model="showRenameConfirm"
+        title="Lock it in?"
+        :message="`Your team will be called &quot;${newTeamName.trim()}&quot; forever. No take-backs, no typo fixes. Sure about this?`"
+        confirm-label="Lock it in!"
+        :loading="renamingLoading"
+        @confirm="doRenameTeam"
+      />
     </template>
 
   </div>
@@ -255,16 +289,30 @@ function toggleUserLocation() {
 const renaming = ref(false);
 const newTeamName = ref("");
 const renamingLoading = ref(false);
+const showRenameConfirm = ref(false);
+const renameError = ref("");
+const renameInput = ref<HTMLInputElement | null>(null);
+
+// Focus the input when the rename modal opens
+watch(renaming, (open) => {
+  if (open) {
+    renameError.value = "";
+    nextTick(() => renameInput.value?.focus());
+  }
+});
 
 async function doRenameTeam() {
   if (!myTeam.value || !newTeamName.value.trim()) return;
   renamingLoading.value = true;
+  renameError.value = "";
   try {
     await renameTeam(myTeam.value.id, newTeamName.value.trim());
+    showRenameConfirm.value = false;
     renaming.value = false;
     newTeamName.value = "";
-  } catch {
-    // error handled by composable
+  } catch (e: any) {
+    showRenameConfirm.value = false;
+    renameError.value = e?.data?.message || e?.message || "Failed to rename team";
   } finally {
     renamingLoading.value = false;
   }

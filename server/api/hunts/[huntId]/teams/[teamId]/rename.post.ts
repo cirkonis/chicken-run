@@ -1,14 +1,15 @@
 import { defineEventHandler, getRouterParam, readBody, createError } from "h3";
-import { getUserClient } from "../../../../../utils/supabase";
+import { getAdminClient } from "../../../../../utils/supabase";
 
 // POST /api/hunts/:huntId/teams/:teamId/rename
 // Body: { name: "New Team Name" }
 // Any participant on the team can rename it — but only once (renamed flag).
+// Uses admin client for the actual update to bypass RLS recursion issues.
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId!;
   const huntId = getRouterParam(event, "huntId");
   const teamId = getRouterParam(event, "teamId");
-  const supabase = getUserClient(event);
+  const admin = getAdminClient();
 
   if (!huntId || !teamId) {
     throw createError({ statusCode: 400, statusMessage: "Missing huntId or teamId" });
@@ -19,8 +20,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Team name is required" });
   }
 
-  // Fetch the team
-  const { data: team, error: teamError } = await supabase
+  // Fetch the team (admin bypasses RLS)
+  const { data: team, error: teamError } = await admin
     .from("hunt_teams")
     .select("id, hunt_id, renamed")
     .eq("id", teamId)
@@ -39,7 +40,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Verify user is on this team
-  const { data: participant } = await supabase
+  const { data: participant } = await admin
     .from("hunt_participants")
     .select("id")
     .eq("hunt_id", huntId)
@@ -55,7 +56,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Rename the team and set renamed = true
-  const { error: updateError } = await supabase
+  const { error: updateError } = await admin
     .from("hunt_teams")
     .update({ name: body.name.trim(), renamed: true })
     .eq("id", teamId);
@@ -67,12 +68,12 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Re-fetch the team (RLS may block select after renamed=true via update chain)
-  const { data: updated } = await supabase
+  // Re-fetch the updated team
+  const { data: updated } = await admin
     .from("hunt_teams")
     .select("*")
     .eq("id", teamId)
     .single();
 
-  return { team: mapTeam(updated || { id: teamId, hunt_id: huntId, name: body.name.trim(), renamed: true, display_order: 0, created_at: new Date().toISOString() }) };
+  return { team: mapTeam(updated!) };
 });

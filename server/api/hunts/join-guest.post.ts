@@ -1,4 +1,5 @@
 import { defineEventHandler, readBody, createError } from "h3";
+import { createClient } from "@supabase/supabase-js";
 import { getAdminClient } from "../../utils/supabase";
 
 // POST /api/hunts/join-guest
@@ -136,8 +137,15 @@ export default defineEventHandler(async (event) => {
   }
 
   // 5. Sign them in to get a session
+  //    Use a THROWAWAY client — never call signInWithPassword on the
+  //    singleton admin client, because it overwrites the auth state and
+  //    makes all subsequent admin requests act as this guest user.
+  const config = useRuntimeConfig();
+  const tempClient = createClient(config.public.supabaseUrl, config.public.supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
   const { data: session, error: signInError } =
-    await admin.auth.signInWithPassword({
+    await tempClient.auth.signInWithPassword({
       email: guestEmail,
       password: guestPassword,
     });
