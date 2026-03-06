@@ -281,7 +281,7 @@ function goBack() {
 
 // ── Lifecycle ────────────────────────────────────────────
 onMounted(async () => {
-  auth.restore();
+  await auth.restore();
 
   if (!auth.state.user) {
     router.push("/");

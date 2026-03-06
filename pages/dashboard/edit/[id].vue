@@ -855,8 +855,8 @@ async function saveHunt() {
 }
 
 // ── Lifecycle ────────────────────────────────────────────
-onMounted(() => {
-  auth.restore();
+onMounted(async () => {
+  await auth.restore();
   if (auth.isHost.value) {
     loadHunt();
   }

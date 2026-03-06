@@ -2,6 +2,7 @@
  * Composable: SSR-safe auth state with automatic token refresh.
  *
  * - Stores session in localStorage (access token, refresh token, expiry)
+ * - Handles Google OAuth callback (parses hash fragment on redirect)
  * - `authFetch()` proactively refreshes tokens within 60s of expiry
  * - On 401 response: attempts one refresh + retry before logging out
  */
@@ -29,27 +30,6 @@ export function useAuth() {
 
   // ── Persistence ────────────────────────────────────────
 
-  /** Restore session from localStorage — call once from onMounted. */
-  function restore() {
-    if (!import.meta.client) {
-      state.value.loading = false;
-      return;
-    }
-    try {
-      const saved = localStorage.getItem("chickenrun_session");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        state.value.user = parsed.user;
-        state.value.accessToken = parsed.accessToken;
-        state.value.refreshToken = parsed.refreshToken;
-        state.value.expiresAt = parsed.expiresAt ?? null;
-      }
-    } catch {
-      // Corrupt storage — ignore
-    }
-    state.value.loading = false;
-  }
-
   function persist() {
     if (!import.meta.client) return;
     if (state.value.user && state.value.accessToken) {
@@ -71,7 +51,7 @@ export function useAuth() {
 
   /** Apply a new session from an API response. */
   function applySession(
-    session: { access_token: string; refresh_token: string; expires_at?: number },
+    session: { access_token: string; refresh_token: string; expires_at?: number | null },
     user?: AuthUser | null
   ) {
     if (user !== undefined) state.value.user = user;
@@ -89,22 +69,6 @@ export function useAuth() {
     applySession(session, user);
   }
 
-  async function signup(email: string, password: string, displayName?: string) {
-    const res = await $fetch<any>("/api/auth/signup", {
-      method: "POST",
-      body: { email, password, displayName },
-    });
-    applySession(res.session, res.user);
-  }
-
-  async function login(email: string, password: string) {
-    const res = await $fetch<any>("/api/auth/login", {
-      method: "POST",
-      body: { email, password },
-    });
-    applySession(res.session, res.user);
-  }
-
   function logout() {
     state.value.user = null;
     state.value.accessToken = null;
@@ -112,6 +76,87 @@ export function useAuth() {
     state.value.expiresAt = null;
     persist();
     router.push("/");
+  }
+
+  // ── OAuth callback ────────────────────────────────────
+
+  /**
+   * Check if the URL has an OAuth hash fragment from Supabase redirect.
+   * If so, extract tokens, fetch profile, and apply session.
+   * Returns true if an OAuth callback was handled.
+   */
+  async function handleOAuthCallback(): Promise<boolean> {
+    if (!import.meta.client) return false;
+
+    const hash = window.location.hash;
+    if (!hash || !hash.includes("access_token=")) return false;
+
+    // Parse the hash fragment
+    const params = new URLSearchParams(hash.substring(1));
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+    const expiresIn = params.get("expires_in");
+
+    if (!accessToken || !refreshToken) return false;
+
+    // Clean the URL hash immediately
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+
+    // Calculate expires_at from expires_in
+    const expiresAt = expiresIn
+      ? Math.floor(Date.now() / 1000) + parseInt(expiresIn)
+      : null;
+
+    // Fetch profile using existing /api/auth/me endpoint
+    try {
+      const res = await $fetch<{ user: { id: string; display_name: string; avatar_url?: string } }>("/api/auth/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      applySession(
+        { access_token: accessToken, refresh_token: refreshToken, expires_at: expiresAt },
+        {
+          id: res.user.id,
+          displayName: res.user.display_name,
+          avatarUrl: res.user.avatar_url,
+        }
+      );
+      return true;
+    } catch {
+      // OAuth callback failed — don't leave partial state
+      return false;
+    }
+  }
+
+  // ── Restore ──────────────────────────────────────────
+
+  /** Restore session — handles OAuth callback or falls back to localStorage. */
+  async function restore() {
+    if (!import.meta.client) {
+      state.value.loading = false;
+      return;
+    }
+
+    // Check for OAuth callback first (tokens in URL hash)
+    const wasOAuth = await handleOAuthCallback();
+
+    if (!wasOAuth) {
+      // Normal restore from localStorage
+      try {
+        const saved = localStorage.getItem("chickenrun_session");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          state.value.user = parsed.user;
+          state.value.accessToken = parsed.accessToken;
+          state.value.refreshToken = parsed.refreshToken;
+          state.value.expiresAt = parsed.expiresAt ?? null;
+        }
+      } catch {
+        // Corrupt storage — ignore
+      }
+    }
+
+    state.value.loading = false;
   }
 
   // ── Computed ───────────────────────────────────────────
@@ -197,8 +242,6 @@ export function useAuth() {
     state: state.value,
     restore,
     setSession,
-    signup,
-    login,
     logout,
     authFetch,
     isHost,

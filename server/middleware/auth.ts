@@ -5,8 +5,6 @@
 import { getUserClient } from "../utils/supabase";
 
 const PUBLIC_ROUTES = [
-  "/api/auth/signup",
-  "/api/auth/login",
   "/api/auth/refresh",
   "/api/hunts/join-guest",
   "/api/bars/search",

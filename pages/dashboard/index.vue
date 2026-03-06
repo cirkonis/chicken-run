@@ -59,8 +59,8 @@ const hunts = ref<HuntWithRole[]>([]);
 const huntsLoading = ref(true);
 const showCopied = ref(false);
 
-onMounted(() => {
-  auth.restore();
+onMounted(async () => {
+  await auth.restore();
   if (auth.isHost.value) {
     loadHunts();
   }

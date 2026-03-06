@@ -390,8 +390,8 @@ async function createHunt() {
 }
 
 // ── Lifecycle ────────────────────────────────────────────
-onMounted(() => {
-  auth.restore();
+onMounted(async () => {
+  await auth.restore();
   nextTick(() => {
     if (pickerMapEl.value) {
       const latVal = parseFloat(lat.value) || 55.678831;
