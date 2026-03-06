@@ -44,24 +44,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Add creator as a participant
-  const { error: participantError } = await supabase
-    .from("hunt_participants")
-    .insert({
-      hunt_id: hunt.id,
-      user_id: userId,
-      role: "creator",
-    });
-
-  if (participantError) {
-    // Hunt was created but participant insert failed — try to clean up
-    await supabase.from("hunts").delete().eq("id", hunt.id);
-    throw createError({
-      statusCode: 500,
-      statusMessage: `Failed to add creator as participant: ${participantError.message}`,
-    });
-  }
-
   // Create teams if provided
   let teams: any[] = [];
   if (body.teams && body.teams.length > 0) {

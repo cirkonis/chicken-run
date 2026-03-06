@@ -23,7 +23,7 @@
             <span class="text-sm text-text-muted italic">
               Playing as <strong>{{ auth.state.user?.displayName || 'Unknown' }}</strong>
               <template v-if="myTeam"> · Team: <strong>{{ myTeam.name }}</strong></template>
-              <template v-if="participants.length > 1"> · {{ participants.length }} hunters</template>
+              <template v-if="myTeamHunterCount"> · {{ myTeamHunterCount }} hunter{{ myTeamHunterCount === 1 ? '' : 's' }}</template>
             </span>
           </div>
           <div v-if="isCreator" class="bg-surface border-2 border-border rounded-[10px] px-3 py-1.5 text-center">
@@ -46,13 +46,13 @@
           >Rename</button>
         </div>
 
-        <div class="flex flex-wrap gap-2.5 items-center" v-if="bars.length || participants.length > 1">
+        <div class="flex flex-wrap gap-2.5 items-center" v-if="bars.length || totalHunterCount">
           <span class="text-sm text-text-muted" v-if="bars.length">
             <b>{{ bars.length }}</b> bars in the zone
           </span>
 
-          <span class="text-sm text-text-muted font-semibold" v-if="participants.length > 1">
-            {{ participants.length }} hunters
+          <span class="text-sm text-text-muted font-semibold" v-if="totalHunterCount">
+            {{ totalHunterCount }} hunter{{ totalHunterCount === 1 ? '' : 's' }}
           </span>
         </div>
       </header>
@@ -201,7 +201,7 @@ const {
   pageLoading, error,
   hunt, bars, hints, participants, teams,
   filter, statusFilter,
-  isCreator, myTeam, statusCounts, filteredBars,
+  isCreator, myTeam, myTeamHunterCount, totalHunterCount, statusCounts, filteredBars,
   loadHunt, toggleStatus, renameTeam,
   setOnMarkersChanged, startPolling, stopPolling,
 } = useHunt(huntId);

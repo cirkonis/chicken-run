@@ -42,6 +42,20 @@ export function useHunt(huntId: string) {
     return teams.value.find((t) => t.id === myParticipant.teamId) ?? null;
   });
 
+  /** Hunters on the current user's team */
+  const myTeamHunterCount = computed(() => {
+    const team = myTeam.value;
+    if (!team) return participants.value.filter((p) => p.role === "hunter").length;
+    return participants.value.filter(
+      (p) => p.role === "hunter" && p.teamId === team.id
+    ).length;
+  });
+
+  /** Total hunters across all teams in this hunt */
+  const totalHunterCount = computed(() =>
+    participants.value.filter((p) => p.role === "hunter").length
+  );
+
   const statusCounts = computed(() => {
     let unchecked = 0,
       checked = 0,
@@ -261,6 +275,8 @@ export function useHunt(huntId: string) {
     // Computed
     isCreator,
     myTeam,
+    myTeamHunterCount,
+    totalHunterCount,
     statusCounts,
     filteredBars,
 

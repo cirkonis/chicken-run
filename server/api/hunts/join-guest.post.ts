@@ -112,35 +112,71 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // 4. Create a guest user with a generated email (not their real email, to avoid conflicts)
-  const guestId = crypto.randomUUID().slice(0, 8);
-  const guestEmail = `guest_${guestId}@chickenrun.guest`;
-  const guestPassword = crypto.randomUUID(); // random, they'll never need it
+  // 4. Reuse an existing guest user for this real email, or create a new one.
+  //    This prevents duplicate auth users (and duplicate hunt_participants rows)
+  //    when the same person joins multiple times.
+  const config = useRuntimeConfig();
+  const guestPassword = crypto.randomUUID(); // fresh password each sign-in
+  let guestUserId: string;
+  let guestEmail: string;
 
-  const { data: newUser, error: createError2 } =
-    await admin.auth.admin.createUser({
-      email: guestEmail,
+  // Check if a guest auth user already exists for this real email
+  const { data: existingGuestId } = await admin.rpc("find_guest_by_real_email", {
+    p_email: email,
+  });
+
+  if (existingGuestId) {
+    // Reuse existing guest: update password (so we can sign in) and display name
+    guestUserId = existingGuestId;
+    const { data: existingUser } = await admin.auth.admin.getUserById(guestUserId);
+    guestEmail = existingUser?.user?.email || "";
+
+    const { error: updateError } = await admin.auth.admin.updateUserById(guestUserId, {
       password: guestPassword,
-      email_confirm: true,
       user_metadata: {
         display_name: memberName,
         is_guest: true,
-        real_email: email, // store their real email for reference
+        real_email: email,
       },
     });
 
-  if (createError2 || !newUser.user) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: `Failed to create guest session: ${createError2?.message}`,
-    });
+    if (updateError) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: `Failed to update guest session: ${updateError.message}`,
+      });
+    }
+  } else {
+    // No existing guest — create a new one
+    const guestId = crypto.randomUUID().slice(0, 8);
+    guestEmail = `guest_${guestId}@chickenrun.guest`;
+
+    const { data: newUser, error: createError2 } =
+      await admin.auth.admin.createUser({
+        email: guestEmail,
+        password: guestPassword,
+        email_confirm: true,
+        user_metadata: {
+          display_name: memberName,
+          is_guest: true,
+          real_email: email,
+        },
+      });
+
+    if (createError2 || !newUser.user) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: `Failed to create guest session: ${createError2?.message}`,
+      });
+    }
+
+    guestUserId = newUser.user.id;
   }
 
   // 5. Sign them in to get a session
   //    Use a THROWAWAY client — never call signInWithPassword on the
   //    singleton admin client, because it overwrites the auth state and
   //    makes all subsequent admin requests act as this guest user.
-  const config = useRuntimeConfig();
   const tempClient = createClient(config.public.supabaseUrl, config.public.supabaseAnonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -162,7 +198,7 @@ export default defineEventHandler(async (event) => {
     "join_hunt_by_code",
     {
       p_code: code,
-      p_user_id: newUser.user.id,
+      p_user_id: guestUserId,
       p_email: email,
     }
   );
@@ -176,7 +212,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     user: {
-      id: newUser.user.id,
+      id: guestUserId,
       displayName: memberName,
       isGuest: true,
     },
