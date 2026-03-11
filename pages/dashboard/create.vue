@@ -8,14 +8,14 @@
       <header class="mb-6">
         <NuxtLink to="/dashboard" class="text-[13px] text-accent no-underline font-semibold hover:underline">← Dashboard</NuxtLink>
         <h1 class="mt-1 mb-0 text-2xl text-accent-dark">🐔 Create a Hunt</h1>
-        <p class="text-text-muted text-sm mt-1">Set up the hunt, add your teams, and let the games begin.</p>
+        <p class="text-text-muted text-sm mt-1">Give your hunt a name and choose your hunting grounds. You'll add teams and chickens next.</p>
       </header>
 
       <!-- Success state -->
       <div v-if="created" class="text-center py-16">
         <p class="text-5xl mb-4">🎉</p>
         <p class="text-xl font-bold text-accent-dark mb-2">Hunt created!</p>
-        <p class="text-text-muted text-sm">Found <strong>{{ barCount }}</strong> bars nearby. Redirecting...</p>
+        <p class="text-text-muted text-sm">Found <strong>{{ barCount }}</strong> bars nearby. Taking you to manage your hunt...</p>
       </div>
 
       <form v-else @submit.prevent="createHunt" class="flex flex-col gap-5">
@@ -49,148 +49,9 @@
               <span class="text-xs text-text-muted italic">Click the map to set the hunt center</span>
               <div ref="pickerMapEl" class="h-[280px] w-full rounded-xl overflow-hidden border-2 border-border mt-1.5"></div>
             </div>
-          </div>
-        </section>
-
-        <!-- Teams -->
-        <section class="bg-surface border-2 border-border rounded-[18px] p-6">
-          <div class="flex justify-between items-center mb-3.5">
-            <h2 class="m-0 text-lg">Teams</h2>
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                class="w-8 h-8 flex items-center justify-center border-2 border-border rounded-lg bg-bg text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed"
-                :disabled="teams.length <= 0"
-                @click="removeTeam"
-              >−</button>
-              <span class="text-sm font-semibold min-w-[60px] text-center">{{ teams.length }} team{{ teams.length !== 1 ? 's' : '' }}</span>
-              <button
-                type="button"
-                class="w-8 h-8 flex items-center justify-center border-2 border-border rounded-lg bg-bg text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent"
-                @click="addTeam"
-              >+</button>
-            </div>
-          </div>
-
-          <p v-if="teams.length === 0" class="text-text-muted text-sm m-0">
-            No teams — hunters will join without team assignment. Add teams if you want to organize players into groups.
-          </p>
-
-          <div v-else class="flex flex-col gap-4">
-            <div
-              v-for="(team, ti) in teams"
-              :key="ti"
-              class="border-2 border-border rounded-xl p-4 bg-bg"
-            >
-              <div class="flex items-center gap-2 mb-3">
-                <input
-                  v-model="team.name"
-                  type="text"
-                  class="flex-1 px-3 py-2 border-2 border-border rounded-lg text-sm bg-surface font-semibold focus:outline-none focus:border-accent"
-                  :placeholder="`Team ${ti + 1}`"
-                />
-                <button
-                  type="button"
-                  class="px-2.5 py-1.5 border-2 border-border rounded-lg bg-surface text-xs text-text-muted cursor-pointer transition-all hover:border-red hover:text-red"
-                  @click="teams.splice(ti, 1)"
-                  title="Remove team"
-                >✕</button>
-              </div>
-
-              <!-- Members -->
-              <div class="flex flex-col gap-2">
-                <div
-                  v-for="(member, mi) in team.members"
-                  :key="mi"
-                  class="flex gap-2 items-center"
-                >
-                  <input
-                    v-model="member.name"
-                    type="text"
-                    placeholder="Name"
-                    class="flex-1 px-2.5 py-2 border-2 border-border rounded-lg text-sm bg-surface focus:outline-none focus:border-accent"
-                  />
-                  <input
-                    v-model="member.email"
-                    type="email"
-                    placeholder="email@example.com"
-                    class="flex-[2] px-2.5 py-2 border-2 border-border rounded-lg text-sm bg-surface focus:outline-none focus:border-accent"
-                  />
-                  <button
-                    type="button"
-                    class="px-2 py-1.5 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red"
-                    @click="team.members.splice(mi, 1)"
-                    title="Remove member"
-                  >✕</button>
-                </div>
-                <button
-                  type="button"
-                  class="self-start px-3 py-1.5 border-2 border-dashed border-border rounded-lg bg-transparent text-xs text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
-                  @click="team.members.push({ name: '', email: '' })"
-                >
-                  + Add member
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Chickens -->
-        <section class="bg-[#fffde7] border-2 border-chicken-yellow rounded-[18px] p-6">
-          <div class="flex justify-between items-center mb-3.5">
-            <h2 class="m-0 text-lg">Chickens</h2>
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                class="w-8 h-8 flex items-center justify-center border-2 border-chicken-yellow rounded-lg bg-white text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed"
-                :disabled="chickens.length <= 0"
-                @click="removeChicken"
-              >−</button>
-              <span class="text-sm font-semibold min-w-[80px] text-center">{{ chickens.length }} chicken{{ chickens.length !== 1 ? 's' : '' }}</span>
-              <button
-                type="button"
-                class="w-8 h-8 flex items-center justify-center border-2 border-chicken-yellow rounded-lg bg-white text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent"
-                @click="addChicken"
-              >+</button>
-            </div>
-          </div>
-
-          <p v-if="chickens.length === 0" class="text-text-muted text-sm m-0">
-            No chickens — anyone with the chicken code can join as prey. Add chickens to control who can play.
-          </p>
-
-          <div v-else class="flex flex-col gap-2">
-            <div
-              v-for="(chicken, ci) in chickens"
-              :key="ci"
-              class="flex gap-2 items-center"
-            >
-              <input
-                v-model="chicken.name"
-                type="text"
-                placeholder="Name"
-                class="flex-1 px-2.5 py-2 border-2 border-chicken-yellow rounded-lg text-sm bg-white focus:outline-none focus:border-accent"
-              />
-              <input
-                v-model="chicken.email"
-                type="email"
-                placeholder="email@example.com"
-                class="flex-[2] px-2.5 py-2 border-2 border-chicken-yellow rounded-lg text-sm bg-white focus:outline-none focus:border-accent"
-              />
-              <button
-                type="button"
-                class="px-2 py-1.5 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red"
-                @click="chickens.splice(ci, 1)"
-                title="Remove chicken"
-              >✕</button>
-            </div>
-            <button
-              type="button"
-              class="self-start px-3 py-1.5 border-2 border-dashed border-chicken-yellow rounded-lg bg-transparent text-xs text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
-              @click="addChicken"
-            >
-              + Add another chicken
-            </button>
+            <p class="text-xs text-text-muted m-0 mt-1">
+              <strong>Note:</strong> Don't worry, the location and radius can be changed later in the manage hunt page.
+            </p>
           </div>
         </section>
 
@@ -204,6 +65,9 @@
           >
             {{ submitLabel }}
           </button>
+          <p class="text-xs text-text-muted text-center mt-2 m-0">
+            You'll add teams and chickens on the next screen.
+          </p>
         </div>
       </form>
     </template>
@@ -211,8 +75,6 @@
 </template>
 
 <script setup lang="ts">
-import type { TeamInput, TeamMemberInput, ChickenInput } from "~/types";
-
 const auth = useAuth();
 const router = useRouter();
 
@@ -221,12 +83,6 @@ const huntName = ref("");
 const lat = ref("55.678831");
 const lng = ref("12.579570");
 const radius = ref("1500");
-
-// Teams
-const teams = ref<{ name: string; members: TeamMemberInput[] }[]>([]);
-
-// Chickens
-const chickens = ref<{ name: string; email: string }[]>([]);
 
 // UI state
 const error = ref("");
@@ -242,7 +98,7 @@ const submitLabel = computed(() => {
 
 // ── Location picker ──────────────────────────────────────
 const pickerMapEl = ref<HTMLDivElement | null>(null);
-const { initPicker, placePin, updateRadius, cleanupPicker, setOnLocationPicked } = useLocationPicker();
+const { initPicker, updateRadius, cleanupPicker, setOnLocationPicked } = useLocationPicker();
 
 setOnLocationPicked((newLat, newLng) => {
   lat.value = newLat.toFixed(6);
@@ -255,107 +111,13 @@ watch(radius, (val) => {
   updateRadius(r);
 });
 
-// ── Team helpers ─────────────────────────────────────────
-function addTeam() {
-  teams.value.push({
-    name: `Team ${teams.value.length + 1}`,
-    members: [{ name: "", email: "" }],
-  });
-}
-
-function removeTeam() {
-  if (teams.value.length > 0) {
-    teams.value.pop();
-  }
-}
-
-// ── Chicken helpers ──────────────────────────────────────
-function addChicken() {
-  chickens.value.push({ name: "", email: "" });
-}
-
-function removeChicken() {
-  if (chickens.value.length > 0) {
-    chickens.value.pop();
-  }
-}
-
-// ── Validation ───────────────────────────────────────────
-function validateForm(): string | null {
-  // Validate team emails (no duplicates within or across teams)
-  for (const team of teams.value) {
-    const emails = team.members
-      .map((m) => m.email.trim().toLowerCase())
-      .filter(Boolean);
-    const seen = new Set<string>();
-    for (const email of emails) {
-      if (seen.has(email)) {
-        return `Duplicate email "${email}" in ${team.name || "a team"}. Each member needs a unique email.`;
-      }
-      seen.add(email);
-    }
-  }
-
-  const allTeamEmails = teams.value.flatMap((t) =>
-    t.members.map((m) => m.email.trim().toLowerCase()).filter(Boolean)
-  );
-  const globalSeen = new Set<string>();
-  for (const email of allTeamEmails) {
-    if (globalSeen.has(email)) {
-      return `Email "${email}" appears in multiple teams. Each person can only be on one team.`;
-    }
-    globalSeen.add(email);
-  }
-
-  // Validate chicken emails (no duplicates)
-  const chickenEmails = chickens.value
-    .map((c) => c.email.trim().toLowerCase())
-    .filter(Boolean);
-  const chickenSeen = new Set<string>();
-  for (const email of chickenEmails) {
-    if (chickenSeen.has(email)) {
-      return `Duplicate chicken email "${email}". Each chicken needs a unique email.`;
-    }
-    chickenSeen.add(email);
-  }
-
-  // Check no overlap between hunter and chicken emails
-  for (const email of chickenEmails) {
-    if (globalSeen.has(email)) {
-      return `Email "${email}" is in both a team and the chicken list. A person can't be both a hunter and a chicken.`;
-    }
-  }
-
-  return null;
-}
-
 // ── Submit ───────────────────────────────────────────────
 async function createHunt() {
   error.value = "";
-
-  // Validate before submitting
-  const validationError = validateForm();
-  if (validationError) {
-    error.value = validationError;
-    return;
-  }
-
   submitting.value = true;
 
   try {
-    // Build teams payload (filter out empty members)
-    const teamsPayload: TeamInput[] = teams.value
-      .filter((t) => t.name.trim())
-      .map((t) => ({
-        name: t.name.trim(),
-        members: t.members.filter((m) => m.name.trim() && m.email.trim()),
-      }));
-
-    // Build chickens payload (filter out empty entries)
-    const chickensPayload: ChickenInput[] = chickens.value
-      .filter((c) => c.name.trim() && c.email.trim());
-
-    // 1. Create the hunt
+    // 1. Create the hunt (no teams or chickens — those go in the edit page)
     const res = await auth.authFetch<{ hunt: any }>("/api/hunts", {
       method: "POST",
       body: {
@@ -363,8 +125,6 @@ async function createHunt() {
         centerLat: Number(lat.value),
         centerLng: Number(lng.value),
         radiusMeters: Number(radius.value) || 1500,
-        teams: teamsPayload.length > 0 ? teamsPayload : undefined,
-        chickens: chickensPayload.length > 0 ? chickensPayload : undefined,
       },
     });
 
@@ -379,8 +139,8 @@ async function createHunt() {
     barCount.value = searchRes.count;
     created.value = true;
 
-    // 4. Redirect after a brief pause
-    setTimeout(() => router.push("/dashboard"), 1500);
+    // 4. Redirect to the edit page for this hunt after a brief pause
+    setTimeout(() => router.push(`/dashboard/edit/${huntId}`), 1500);
   } catch (e: any) {
     error.value = e?.data?.message || e?.message || "Failed to create hunt";
     created.value = false;
