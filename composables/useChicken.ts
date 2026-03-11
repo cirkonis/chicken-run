@@ -88,7 +88,7 @@ export function useChicken(huntId: string) {
         id: res.hint.id,
         text: res.hint.text,
         authorId: res.hint.authorId,
-        authorName: auth.state.user?.displayName || "You",
+        authorName: auth.state.user?.displayName || "The Chickens 🐔",
         createdAt: res.hint.createdAt,
       });
     } catch (e: any) {

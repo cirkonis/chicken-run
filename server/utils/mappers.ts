@@ -62,7 +62,7 @@ export function mapHint(row: Record<string, any>): Hint {
     id: row.id,
     text: row.text,
     authorId: row.author_id,
-    authorName: row.profiles?.display_name || "Unknown",
+    authorName: row.profiles?.display_name || "The Chickens 🐔",
     createdAt: row.created_at,
   };
 }

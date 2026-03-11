@@ -18,7 +18,7 @@
       <header class="mb-4">
         <div class="flex items-start justify-between gap-3 mb-3">
           <div class="flex flex-col gap-1">
-            <button class="bg-transparent border-none text-accent font-semibold text-[13px] cursor-pointer p-0 mb-1 hover:underline" @click="goBack" title="Back">← Back</button>
+            <button class="self-start bg-transparent border-none text-accent font-semibold text-[13px] cursor-pointer p-0 mb-1 hover:underline" @click="goBack" title="Back">← Back</button>
             <h1 class="m-0 text-2xl text-accent-dark">🐔 {{ hunt.name }}</h1>
             <span class="text-sm text-text-muted italic">
               Playing as <strong>{{ auth.state.user?.displayName || 'Unknown' }}</strong> · Chicken
@@ -79,24 +79,22 @@
 
               <!-- Spend form -->
               <div v-else class="flex flex-col gap-2 p-3 bg-white/60 border-2 border-chicken-yellow/40 rounded-xl">
-                <div class="flex gap-2">
-                  <input
-                    ref="spendAmountInput"
-                    v-model="spendAmount"
-                    type="number"
-                    inputmode="numeric"
-                    placeholder="Amount (kr)"
-                    min="1"
-                    class="flex-1 px-3 py-2 border-2 border-border rounded-lg text-sm bg-bg focus:outline-none focus:border-accent"
-                  />
-                  <input
-                    v-model="spendNote"
-                    type="text"
-                    placeholder="Note (optional)"
-                    class="flex-[2] px-3 py-2 border-2 border-border rounded-lg text-sm bg-bg focus:outline-none focus:border-accent"
-                    @keyup.enter="submitSpend"
-                  />
-                </div>
+                <input
+                  ref="spendAmountInput"
+                  v-model="spendAmount"
+                  type="number"
+                  inputmode="numeric"
+                  placeholder="Amount (kr)"
+                  min="1"
+                  class="w-full px-3 py-2 border-2 border-border rounded-lg text-sm bg-bg focus:outline-none focus:border-accent"
+                />
+                <input
+                  v-model="spendNote"
+                  type="text"
+                  placeholder="Note (optional)"
+                  class="w-full px-3 py-2 border-2 border-border rounded-lg text-sm bg-bg focus:outline-none focus:border-accent"
+                  @keyup.enter="submitSpend"
+                />
                 <div class="flex gap-2">
                   <button
                     type="button"

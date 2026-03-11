@@ -66,13 +66,7 @@
       </div>
 
       <!-- ─── Host section ──────────────────────────────── -->
-      <div>
-        <div class="flex items-center gap-4 my-8">
-          <span class="flex-1 h-px bg-border"></span>
-          <span class="text-text-muted text-[13px] font-semibold uppercase tracking-wider">or</span>
-          <span class="flex-1 h-px bg-border"></span>
-        </div>
-
+      <div class="mt-6">
         <!-- Not logged in: show Google sign-in -->
         <div v-if="!auth.isLoggedIn.value" class="bg-surface border-2 border-border rounded-[20px] p-6 text-center">
           <h3 class="m-0 mb-1 text-lg">Host a Hunt</h3>
@@ -136,9 +130,6 @@
         </div>
       </div>
 
-      <footer class="text-center pt-7 pb-3 text-[13px] text-text-muted">
-        <p class="m-0">🐔 Don't be a chicken — check every bar.</p>
-      </footer>
     </template>
   </div>
 </template>

@@ -22,7 +22,7 @@
         <p class="text-text-muted text-sm mt-1">Update your hunt, manage teams, and get ready to go.</p>
       </header>
 
-      <form @submit.prevent="saveHunt" class="flex flex-col gap-5">
+      <form @submit.prevent="saveHunt" class="flex flex-col gap-5 pb-20">
         <!-- Hunt Name -->
         <input
           v-model="huntName"
@@ -150,7 +150,7 @@
                   </button>
                   <span v-if="pickingMode" class="text-xs text-accent italic animate-pulse">Click the map to move the pin</span>
                 </div>
-                <div class="rounded-xl overflow-hidden border-2 transition-colors" :class="pickingMode ? 'border-accent' : 'border-border'">
+                <div class="rounded-xl overflow-hidden border-2 transition-colors relative z-0" :class="pickingMode ? 'border-accent' : 'border-border'">
                   <div ref="pickerMapEl" class="h-[280px] w-full"></div>
                 </div>
               </div>
@@ -290,17 +290,8 @@
           <TeamManager v-if="teamsOpen" v-model="teams" />
         </section>
 
-        <!-- Submit -->
-        <div>
-          <div v-if="error" class="px-3 py-2 mb-3 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ error }}</div>
-          <button
-            type="submit"
-            class="w-full px-6 py-3.5 border-0 rounded-xl cursor-pointer bg-accent text-white font-bold text-[15px] transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed"
-            :disabled="submitting || searchingBars || locationChanged"
-          >
-            {{ submitting ? "Saving..." : locationChanged ? "⚠️ Update bars before saving" : "💾 Save Changes" }}
-          </button>
-        </div>
+        <!-- Error display -->
+        <div v-if="error" class="px-3 py-2 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ error }}</div>
 
         <!-- Scary Stuff -->
         <section class="bg-surface border-2 border-red/20 rounded-[18px] p-6">
@@ -373,6 +364,33 @@
           <div class="text-white/25 text-[11px] mt-10">Tap anywhere to close</div>
         </div>
       </Teleport>
+
+      <!-- Sticky save bar -->
+      <Teleport to="body">
+        <Transition
+          enter-active-class="transition-transform duration-200 ease-out"
+          leave-active-class="transition-transform duration-150 ease-in"
+          enter-from-class="translate-y-full"
+          leave-to-class="translate-y-full"
+        >
+          <div
+            v-if="isDirty"
+            class="fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur border-t-2 border-accent/30 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] px-4 py-3"
+          >
+            <div class="max-w-[700px] mx-auto flex items-center justify-between gap-3">
+              <span class="text-sm text-text-muted font-medium">Unsaved changes</span>
+              <button
+                type="button"
+                class="px-6 py-2.5 border-0 rounded-xl cursor-pointer bg-accent text-white font-bold text-sm transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed"
+                :disabled="submitting || searchingBars || locationChanged"
+                @click="saveHunt"
+              >
+                {{ submitting ? "Saving..." : locationChanged ? "⚠️ Update bars first" : "💾 Save Changes" }}
+              </button>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
     </template>
   </div>
 </template>
@@ -397,6 +415,39 @@ const hunterCode = ref("");
 // Teams (now includes chicken team via isChicken flag)
 const teams = ref<{ name: string; members: TeamMemberInput[]; isChicken?: boolean }[]>([]);
 const savedTeamCodes = ref<{ name: string; code: string; isChicken: boolean }[]>([]);
+
+// Dirty tracking — snapshots of last-saved state
+const savedHuntName = ref("");
+const savedBudget = ref("");
+const savedTeamsSnapshot = ref("");
+
+const isDirty = computed(() => {
+  if (loading.value) return false;
+  if (huntName.value !== savedHuntName.value) return true;
+  if (budget.value !== savedBudget.value) return true;
+  // Deep compare teams via JSON snapshot
+  const currentTeams = JSON.stringify(
+    teams.value.map((t) => ({
+      name: t.name.trim(),
+      members: t.members.filter((m) => m.name.trim()).map((m) => m.name.trim()),
+      isChicken: t.isChicken || false,
+    }))
+  );
+  if (currentTeams !== savedTeamsSnapshot.value) return true;
+  return false;
+});
+
+function takeSavedSnapshot() {
+  savedHuntName.value = huntName.value;
+  savedBudget.value = budget.value;
+  savedTeamsSnapshot.value = JSON.stringify(
+    teams.value.map((t) => ({
+      name: t.name.trim(),
+      members: t.members.filter((m) => m.name.trim()).map((m) => m.name.trim()),
+      isChicken: t.isChicken || false,
+    }))
+  );
+}
 
 // Flash code overlay
 const flashCode = ref<{ name: string; code: string } | null>(null);
@@ -719,6 +770,9 @@ async function loadHunt() {
         isChicken: true,
       });
     }
+
+    // Snapshot saved state for dirty tracking
+    takeSavedSnapshot();
 
     // Set loading false FIRST so Vue renders the form (and map container)
     loading.value = false;
