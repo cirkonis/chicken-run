@@ -23,9 +23,17 @@ export function mapHunt(row: Record<string, any>): Hunt {
 
 export function mapHuntWithRole(
   row: Record<string, any>,
-  role: string
+  role: string,
+  stats?: { teamCount?: number; memberCount?: number; barCount?: number; budget?: number | null }
 ): HuntWithRole {
-  return { ...mapHunt(row), role };
+  return {
+    ...mapHunt(row),
+    role,
+    teamCount: stats?.teamCount ?? 0,
+    memberCount: stats?.memberCount ?? 0,
+    barCount: stats?.barCount ?? 0,
+    budget: stats?.budget ?? null,
+  };
 }
 
 export function mapBar(row: Record<string, any>): HuntBar {

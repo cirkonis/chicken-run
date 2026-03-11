@@ -13,24 +13,28 @@
       >{{ hunt.status }}</span>
     </div>
 
-    <!-- Codes (stacked) -->
-    <div class="flex flex-col gap-2 mb-3">
-      <div class="flex items-center gap-1.5 px-3 py-2.5 bg-bg border-2 border-border rounded-[10px]">
-        <span class="text-[10px] text-text-muted whitespace-nowrap">Hunter Code</span>
-        <span class="font-extrabold text-base tracking-[2px] text-accent-dark flex-1">{{ hunt.hunterCode }}</span>
-        <button class="bg-transparent border-none cursor-pointer text-sm p-0.5 opacity-50 transition-opacity hover:opacity-100" @click="$emit('copy', hunt.hunterCode)" title="Copy">Copy</button>
+    <!-- Stats grid -->
+    <div class="grid grid-cols-4 gap-2 mb-3">
+      <div class="flex flex-col items-center py-2.5 bg-bg border-2 border-border rounded-xl">
+        <span class="text-lg font-bold text-accent-dark">{{ hunt.teamCount }}</span>
+        <span class="text-[10px] text-text-muted mt-0.5">Teams</span>
       </div>
-      <div class="flex items-center gap-1.5 px-3 py-2.5 bg-[#fff8e1] border-2 border-chicken-yellow rounded-[10px]">
-        <span class="text-[10px] text-text-muted whitespace-nowrap">Chicken Code</span>
-        <span class="font-extrabold text-base tracking-[2px] text-accent-dark flex-1">{{ hunt.chickenCode }}</span>
-        <button class="bg-transparent border-none cursor-pointer text-sm p-0.5 opacity-50 transition-opacity hover:opacity-100" @click="$emit('copy', hunt.chickenCode)" title="Copy">Copy</button>
+      <div class="flex flex-col items-center py-2.5 bg-bg border-2 border-border rounded-xl">
+        <span class="text-lg font-bold text-accent-dark">{{ hunt.memberCount }}</span>
+        <span class="text-[10px] text-text-muted mt-0.5">Hunters</span>
+      </div>
+      <div class="flex flex-col items-center py-2.5 bg-bg border-2 border-border rounded-xl">
+        <span class="text-lg font-bold text-accent-dark">{{ hunt.barCount }}</span>
+        <span class="text-[10px] text-text-muted mt-0.5">Bars</span>
+      </div>
+      <div class="flex flex-col items-center py-2.5 bg-bg border-2 border-border rounded-xl">
+        <span class="text-lg font-bold text-accent-dark">{{ hunt.budget != null ? `${hunt.budget}` : '—' }}</span>
+        <span class="text-[10px] text-text-muted mt-0.5">Budget</span>
       </div>
     </div>
 
     <!-- Meta -->
     <div class="flex gap-3 text-xs text-text-muted mb-3">
-      <span>{{ hunt.centerLat.toFixed(4) }}, {{ hunt.centerLng.toFixed(4) }}</span>
-      <span>{{ hunt.radiusMeters }}m radius</span>
       <span>{{ formatDate(hunt.createdAt) }}</span>
     </div>
 
@@ -48,9 +52,6 @@
 import type { HuntWithRole } from "~/types";
 
 defineProps<{ hunt: HuntWithRole }>();
-defineEmits<{
-  copy: [code: string];
-}>();
 
 function formatDate(iso: string): string {
   try {

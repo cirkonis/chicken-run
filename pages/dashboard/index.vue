@@ -37,16 +37,11 @@
             v-for="h in hunts"
             :key="h.id"
             :hunt="h"
-            @copy="copyCode"
           />
         </div>
       </div>
     </template>
 
-    <!-- Copied toast -->
-    <Teleport to="body">
-      <div v-if="showCopied" class="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-2.5 bg-text text-white rounded-[10px] text-sm font-semibold z-[9999] animate-slide-up">Copied!</div>
-    </Teleport>
   </div>
 </template>
 
@@ -57,7 +52,6 @@ const auth = useAuth();
 
 const hunts = ref<HuntWithRole[]>([]);
 const huntsLoading = ref(true);
-const showCopied = ref(false);
 
 onMounted(async () => {
   await auth.restore();
@@ -78,13 +72,4 @@ async function loadHunts() {
   }
 }
 
-async function copyCode(code: string) {
-  try {
-    await navigator.clipboard.writeText(code);
-    showCopied.value = true;
-    setTimeout(() => (showCopied.value = false), 1500);
-  } catch {
-    // fallback
-  }
-}
 </script>

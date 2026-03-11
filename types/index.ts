@@ -13,9 +13,13 @@ export interface Hunt {
   teams?: Team[];
 }
 
-/** Hunt with the current user's role (used in dashboard list) */
+/** Hunt with the current user's role and summary stats (used in dashboard list) */
 export interface HuntWithRole extends Hunt {
   role: string;
+  teamCount: number;
+  memberCount: number;
+  barCount: number;
+  budget: number | null;
 }
 
 // ── Team ─────────────────────────────────────────────────

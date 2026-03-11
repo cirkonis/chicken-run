@@ -839,14 +839,8 @@ async function saveHunt() {
       },
     });
 
-    // Update team codes from response (new teams get fresh codes)
-    if (saveRes.hunt.teams) {
-      savedTeamCodes.value = saveRes.hunt.teams
-        .filter((t) => t.joinCode)
-        .map((t) => ({ name: t.name, code: t.joinCode! }));
-    }
-
-    router.push("/dashboard");
+    // Reload to reflect saved state (fresh codes, clean form)
+    window.location.reload();
   } catch (e: any) {
     error.value = e?.data?.message || e?.message || "Failed to save hunt";
   } finally {

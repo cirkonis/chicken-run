@@ -61,10 +61,46 @@ export default defineEventHandler(async (event) => {
 
   // Merge and dedupe: created hunts first, then joined hunts
   const allHunts = [...(createdHunts || []), ...joinedHunts];
+  const allHuntIds = allHunts.map((h) => h.id);
+
+  // Fetch summary stats for all hunts in batch
+  const [teamsResult, barsResult] = await Promise.all([
+    supabase
+      .from("hunt_teams")
+      .select("hunt_id, id, hunt_team_members(count)")
+      .in("hunt_id", allHuntIds.length > 0 ? allHuntIds : [""]),
+    supabase
+      .from("hunt_bars")
+      .select("hunt_id")
+      .in("hunt_id", allHuntIds.length > 0 ? allHuntIds : [""]),
+  ]);
+
+  // Build stats maps
+  const teamCountMap = new Map<string, number>();
+  const memberCountMap = new Map<string, number>();
+  for (const t of teamsResult.data || []) {
+    teamCountMap.set(t.hunt_id, (teamCountMap.get(t.hunt_id) || 0) + 1);
+    const memberCount = (t.hunt_team_members as any)?.[0]?.count ?? 0;
+    memberCountMap.set(t.hunt_id, (memberCountMap.get(t.hunt_id) || 0) + memberCount);
+  }
+
+  const barCountMap = new Map<string, number>();
+  for (const b of barsResult.data || []) {
+    barCountMap.set(b.hunt_id, (barCountMap.get(b.hunt_id) || 0) + 1);
+  }
 
   return {
     hunts: allHunts.map((h) =>
-      mapHuntWithRole(h, h.creator_id === userId ? "creator" : (roleMap[h.id] || "hunter"))
+      mapHuntWithRole(
+        h,
+        h.creator_id === userId ? "creator" : (roleMap[h.id] || "hunter"),
+        {
+          teamCount: teamCountMap.get(h.id) || 0,
+          memberCount: memberCountMap.get(h.id) || 0,
+          barCount: barCountMap.get(h.id) || 0,
+          budget: null,
+        }
+      )
     ),
   };
 });
