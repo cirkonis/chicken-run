@@ -25,8 +25,8 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Fetch bars, hints, participants, teams, and chickens in parallel
-  const [barsResult, hintsResult, participantsResult, teamsResult, chickensResult] = await Promise.all([
+  // Fetch bars, hints, participants, teams, chickens, expenses, arrivals in parallel
+  const [barsResult, hintsResult, participantsResult, teamsResult, chickensResult, expensesResult, arrivalsResult] = await Promise.all([
     supabase
       .from("hunt_bars")
       .select("*")
@@ -51,6 +51,16 @@ export default defineEventHandler(async (event) => {
       .select("*")
       .eq("hunt_id", huntId)
       .order("created_at"),
+    supabase
+      .from("hunt_expenses")
+      .select("*")
+      .eq("hunt_id", huntId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("hunt_arrivals")
+      .select("*, hunt_teams(name)")
+      .eq("hunt_id", huntId)
+      .order("arrived_at"),
   ]);
 
   return {
@@ -60,5 +70,7 @@ export default defineEventHandler(async (event) => {
     participants: (participantsResult.data || []).map(mapParticipant),
     teams: (teamsResult.data || []).map(mapTeam),
     chickens: (chickensResult.data || []).map(mapChicken),
+    expenses: (expensesResult.data || []).map(mapExpense),
+    arrivals: (arrivalsResult.data || []).map(mapArrival),
   };
 });

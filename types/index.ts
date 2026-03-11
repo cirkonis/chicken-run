@@ -7,6 +7,7 @@ export interface Hunt {
   centerLat: number;
   centerLng: number;
   radiusMeters: number;
+  budget: number | null;
   status: "active" | "completed" | "archived";
   creatorId: string;
   createdAt: string;
@@ -119,4 +120,23 @@ export interface AuthSession {
   access_token: string;
   refresh_token: string;
   expires_at?: number;
+}
+
+// ── Expense (chicken budget tracking) ────────────────────
+export interface HuntExpense {
+  id: string;
+  huntId: string;
+  amount: number;
+  note: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+// ── Arrival (team found the chickens) ────────────────────
+export interface HuntArrival {
+  id: string;
+  huntId: string;
+  teamId: string;
+  teamName: string;
+  arrivedAt: string;
 }

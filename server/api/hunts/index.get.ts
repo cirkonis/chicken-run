@@ -98,7 +98,7 @@ export default defineEventHandler(async (event) => {
           teamCount: teamCountMap.get(h.id) || 0,
           memberCount: memberCountMap.get(h.id) || 0,
           barCount: barCountMap.get(h.id) || 0,
-          budget: null,
+          budget: h.budget ?? null,
         }
       )
     ),

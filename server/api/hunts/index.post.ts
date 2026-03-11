@@ -13,6 +13,7 @@ export default defineEventHandler(async (event) => {
     centerLat: number;
     centerLng: number;
     radiusMeters?: number;
+    budget?: number | null;
     teams?: TeamInput[];
     chickens?: ChickenInput[];
   }>(event);
@@ -25,15 +26,18 @@ export default defineEventHandler(async (event) => {
   }
 
   // Create the hunt
+  const insertData: Record<string, any> = {
+    creator_id: userId,
+    name: body.name.trim(),
+    center_lat: body.centerLat,
+    center_lng: body.centerLng,
+    radius_meters: body.radiusMeters || 1500,
+  };
+  if (body.budget != null) insertData.budget = body.budget;
+
   const { data: hunt, error } = await supabase
     .from("hunts")
-    .insert({
-      creator_id: userId,
-      name: body.name.trim(),
-      center_lat: body.centerLat,
-      center_lng: body.centerLng,
-      radius_meters: body.radiusMeters || 1500,
-    })
+    .insert(insertData)
     .select()
     .single();
 
@@ -70,11 +74,12 @@ export default defineEventHandler(async (event) => {
 
       // Insert team members
       if (teamInput.members && teamInput.members.length > 0) {
-        const membersToInsert = teamInput.members.map((m) => ({
-          team_id: team.id,
-          name: m.name.trim(),
-          email: m.email.trim().toLowerCase(),
-        }));
+        const membersToInsert = teamInput.members
+          .filter((m) => m.name.trim())
+          .map((m) => ({
+            team_id: team.id,
+            name: m.name.trim(),
+          }));
 
         const { error: membersError } = await supabase
           .from("hunt_team_members")

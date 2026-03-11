@@ -32,6 +32,27 @@
           required
         />
 
+        <!-- Budget -->
+        <div class="flex items-center gap-3">
+          <label class="flex flex-col gap-1 flex-1">
+            <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Budget (kr)</span>
+            <input
+              v-model="budget"
+              type="number"
+              inputmode="numeric"
+              placeholder="Optional — leave blank for no budget"
+              min="0"
+              class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent"
+            />
+          </label>
+          <button
+            v-if="budget"
+            type="button"
+            class="mt-5 px-3 py-2 border-2 border-border rounded-lg bg-surface text-xs text-text-muted cursor-pointer transition-all hover:border-red hover:text-red"
+            @click="budget = ''"
+          >Clear</button>
+        </div>
+
         <!-- Hunt Codes -->
         <section class="bg-surface border-2 border-border rounded-[18px] p-6">
           <div class="flex justify-between items-center" :class="codesOpen ? 'mb-3.5' : ''">
@@ -439,6 +460,7 @@ const huntName = ref("");
 const lat = ref("");
 const lng = ref("");
 const radius = ref("1500");
+const budget = ref("");
 const hunterCode = ref("");
 const chickenCode = ref("");
 
@@ -731,6 +753,7 @@ async function loadHunt() {
     lat.value = String(h.centerLat);
     lng.value = String(h.centerLng);
     radius.value = String(h.radiusMeters);
+    budget.value = h.budget != null ? String(h.budget) : "";
     hunterCode.value = h.hunterCode;
     chickenCode.value = h.chickenCode;
     huntStatus.value = h.status;
@@ -834,6 +857,7 @@ async function saveHunt() {
         centerLat: Number(lat.value),
         centerLng: Number(lng.value),
         radiusMeters: Number(radius.value) || 1500,
+        budget: budget.value ? Number(budget.value) : null,
         teams: teamsPayload,
         chickens: chickensPayload,
       },

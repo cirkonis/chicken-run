@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
     centerLat?: number;
     centerLng?: number;
     radiusMeters?: number;
+    budget?: number | null;
     teams?: TeamInput[];
     chickens?: ChickenInput[];
   }>(event);
@@ -43,6 +44,7 @@ export default defineEventHandler(async (event) => {
   if (body.centerLat !== undefined) updates.center_lat = body.centerLat;
   if (body.centerLng !== undefined) updates.center_lng = body.centerLng;
   if (body.radiusMeters !== undefined) updates.radius_meters = body.radiusMeters;
+  if (body.budget !== undefined) updates.budget = body.budget;
 
   if (Object.keys(updates).length > 0) {
     const { error: updateError } = await supabase

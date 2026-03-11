@@ -215,8 +215,12 @@ async function joinAsGuest(memberName: string) {
       res.session
     );
 
-    // Navigate to the hunt
-    router.push(`/hunt/${res.huntId}`);
+    // Navigate to the right page based on role
+    if (res.role === "chicken") {
+      router.push(`/chicken/${res.huntId}`);
+    } else {
+      router.push(`/hunt/${res.huntId}`);
+    }
   } catch (e: any) {
     joinError.value = e?.data?.message || e?.message || "Failed to join hunt";
     // If code was bad, go back to code step

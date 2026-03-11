@@ -67,14 +67,20 @@
           </div>
 
           <div v-show="cluckingOpen">
-            <!-- Money left -->
-            <div class="flex items-center gap-3 px-4 py-3 bg-white/60 border-2 border-chicken-yellow/40 rounded-xl mb-3">
+            <!-- Money left (only if budget is set) -->
+            <div v-if="budgetTotal != null" class="flex items-center gap-3 px-4 py-3 bg-white/60 border-2 border-chicken-yellow/40 rounded-xl mb-3">
               <div class="flex-1">
                 <div class="text-xs font-semibold uppercase tracking-wide text-text-muted mb-0.5">Money left</div>
-                <div class="text-2xl font-bold text-accent-dark">{{ moneyLeft }} kr <span class="text-sm font-normal text-text-muted">of {{ moneyTotal }} kr</span></div>
+                <div class="text-2xl font-bold text-accent-dark">
+                  {{ budgetRemaining }} kr
+                  <span class="text-sm font-normal text-text-muted">of {{ budgetTotal }} kr</span>
+                </div>
               </div>
-              <div class="w-16 h-16 rounded-full border-4 border-chicken-yellow flex items-center justify-center">
-                <span class="text-sm font-bold text-accent-dark">{{ moneyPercent }}%</span>
+              <div
+                class="w-16 h-16 rounded-full border-4 flex items-center justify-center"
+                :class="budgetPercent > 25 ? 'border-chicken-yellow' : 'border-red'"
+              >
+                <span class="text-sm font-bold" :class="budgetPercent > 25 ? 'text-accent-dark' : 'text-red'">{{ budgetPercent }}%</span>
               </div>
             </div>
 
@@ -83,6 +89,25 @@
               :hints="hints"
               :show-when-empty="bars.length > 0"
             />
+
+            <!-- Who's with the chickens (arrivals) -->
+            <div class="mt-3 px-4 py-3 bg-white/60 border-2 border-chicken-yellow/40 rounded-xl">
+              <div class="text-xs font-semibold uppercase tracking-wide text-text-muted mb-2">Who's with the chickens</div>
+              <div v-if="arrivals.length > 0" class="flex flex-col gap-1.5">
+                <div
+                  v-for="(a, idx) in arrivals"
+                  :key="a.id"
+                  class="flex items-center gap-2 text-sm"
+                >
+                  <span class="w-6 h-6 rounded-full bg-accent/10 text-accent font-bold text-[10px] flex items-center justify-center">
+                    {{ idx + 1 }}{{ idx === 0 ? 'st' : idx === 1 ? 'nd' : idx === 2 ? 'rd' : 'th' }}
+                  </span>
+                  <span class="font-semibold">{{ a.teamName }}</span>
+                  <span class="text-[11px] text-text-muted ml-auto">{{ formatArrivalTime(a.arrivedAt) }}</span>
+                </div>
+              </div>
+              <p v-else class="text-[13px] text-text-muted italic m-0">No teams have found the chickens yet.</p>
+            </div>
           </div>
         </section>
 
@@ -236,9 +261,10 @@ const huntId = route.params.id as string;
 // ── Composables ──────────────────────────────────────────
 const {
   pageLoading, error,
-  hunt, bars, hints, participants, teams,
+  hunt, bars, hints, participants, teams, arrivals,
   filter, statusFilter,
   isCreator, myTeam, myTeamHunterCount, totalHunterCount, statusCounts, filteredBars,
+  budgetTotal, budgetSpent, budgetRemaining, budgetPercent,
   loadHunt, toggleStatus, renameTeam,
   setOnMarkersChanged, startPolling, stopPolling,
 } = useHunt(huntId);
@@ -252,11 +278,6 @@ const {
 
 // Wire map repaint into hunt actions (uses filtered list so map matches the bar list)
 setOnMarkersChanged(() => paintMarkers(filteredBars.value));
-
-// ── Money (placeholder) ─────────────────────────────────
-const moneyTotal = ref(1000);
-const moneyLeft = ref(1000);
-const moneyPercent = computed(() => Math.round((moneyLeft.value / moneyTotal.value) * 100));
 
 // ── Map toggle ───────────────────────────────────────────
 const mapEl = ref<HTMLDivElement | null>(null);
@@ -359,6 +380,18 @@ async function doRenameTeam() {
     renameError.value = e?.data?.message || e?.message || "Failed to rename team";
   } finally {
     renamingLoading.value = false;
+  }
+}
+
+// ── Helpers ──────────────────────────────────────────────
+function formatArrivalTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
   }
 }
 

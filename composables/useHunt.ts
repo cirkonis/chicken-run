@@ -2,7 +2,7 @@
  * Composable: all hunt state, data loading, actions, polling, and filtering.
  * Pulls ~300 lines of logic out of pages/hunt/[id].vue.
  */
-import type { Hunt, HuntBar, Hint, Participant, Team } from "~/types";
+import type { Hunt, HuntBar, Hint, Participant, Team, HuntExpense, HuntArrival } from "~/types";
 
 const POLL_INTERVAL = 30_000;
 
@@ -20,6 +20,8 @@ export function useHunt(huntId: string) {
   const hints = ref<Hint[]>([]);
   const participants = ref<Participant[]>([]);
   const teams = ref<Team[]>([]);
+  const expenses = ref<HuntExpense[]>([]);
+  const arrivals = ref<HuntArrival[]>([]);
 
   // UI state
   const filter = ref("");
@@ -82,6 +84,25 @@ export function useHunt(huntId: string) {
     return result;
   });
 
+  // ── Budget computed ───────────────────────────────────
+  const budgetTotal = computed(() => hunt.value?.budget ?? null);
+
+  const budgetSpent = computed(() =>
+    expenses.value.reduce((sum, e) => sum + e.amount, 0)
+  );
+
+  const budgetRemaining = computed(() => {
+    if (budgetTotal.value == null) return null;
+    return Math.max(0, budgetTotal.value - budgetSpent.value);
+  });
+
+  const budgetPercent = computed(() => {
+    if (budgetTotal.value == null || budgetTotal.value === 0) return 0;
+    return Math.round(
+      ((budgetTotal.value - budgetSpent.value) / budgetTotal.value) * 100
+    );
+  });
+
   // ── Callback for map repaint ───────────────────────────
   // Set by the page after creating useMap() so marker repaints are triggered
   let onMarkersChanged: (() => void) | null = null;
@@ -99,6 +120,8 @@ export function useHunt(huntId: string) {
       hints.value = res.hints;
       participants.value = res.participants;
       teams.value = res.teams || [];
+      expenses.value = res.expenses || [];
+      arrivals.value = res.arrivals || [];
       pageLoading.value = false;
     } catch (e: any) {
       error.value = e?.data?.message || e?.message || "Failed to load hunt";
@@ -221,12 +244,19 @@ export function useHunt(huntId: string) {
       }
       if (changed) onMarkersChanged?.();
 
-      // Merge hints & participants & teams
+      // Merge hints, participants, teams, expenses, arrivals
       if (res.hints.length !== hints.value.length) {
         hints.value = res.hints;
       }
       participants.value = res.participants;
       teams.value = res.teams || [];
+      expenses.value = res.expenses || [];
+      arrivals.value = res.arrivals || [];
+
+      // Update hunt (budget might have changed)
+      if (res.hunt) {
+        hunt.value = res.hunt;
+      }
     } catch {
       // Silent — polling failures are non-critical
     }
@@ -266,6 +296,8 @@ export function useHunt(huntId: string) {
     hints,
     participants,
     teams,
+    expenses,
+    arrivals,
     filter,
     statusFilter,
     showHintInput,
@@ -279,6 +311,10 @@ export function useHunt(huntId: string) {
     totalHunterCount,
     statusCounts,
     filteredBars,
+    budgetTotal,
+    budgetSpent,
+    budgetRemaining,
+    budgetPercent,
 
     // Actions
     loadHunt,
