@@ -764,22 +764,23 @@ async function loadHunt() {
       }));
     }
 
-    // Init map at hunt location (picking disabled by default)
-    nextTick(() => {
-      if (pickerMapEl.value) {
-        initPicker(
-          pickerMapEl.value,
-          { lat: h.centerLat, lng: h.centerLng },
-          h.radiusMeters
-        );
-        setPickingEnabled(false);
-        // Paint bar markers after map init
-        nextTick(() => paintBarMarkers());
-      }
-    });
+    // Set loading false FIRST so Vue renders the form (and map container)
+    loading.value = false;
+
+    // Then wait for DOM to be ready and init the map
+    await nextTick();
+    if (pickerMapEl.value) {
+      initPicker(
+        pickerMapEl.value,
+        { lat: h.centerLat, lng: h.centerLng },
+        h.radiusMeters
+      );
+      setPickingEnabled(false);
+      await nextTick();
+      paintBarMarkers();
+    }
   } catch (e: any) {
     loadError.value = e?.data?.message || e?.message || "Failed to load hunt";
-  } finally {
     loading.value = false;
   }
 }
