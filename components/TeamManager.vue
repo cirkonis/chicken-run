@@ -185,8 +185,8 @@
       </p>
 
       <div
-        v-for="(team, ti) in localTeams"
-        :key="ti"
+        v-for="(team, ti) in sortedLocalTeams"
+        :key="sortedLocalTeamIndex(ti)"
         class="border-2 rounded-xl p-4"
         :class="team.isChicken
           ? 'border-chicken-yellow bg-[#fffde7]'
@@ -204,23 +204,9 @@
             :placeholder="team.isChicken ? 'Chickens' : `Team ${ti + 1}`"
           />
           <button
-            v-if="!team.isChicken"
-            type="button"
-            class="px-2 py-1 border-2 border-chicken-yellow/50 rounded-lg bg-[#fffde7] text-[10px] text-[#d4a017] font-semibold cursor-pointer transition-all hover:border-chicken-yellow"
-            title="Convert to chicken team"
-            @click="toggleChickenTeam(ti)"
-          >🐔</button>
-          <button
-            v-if="team.isChicken"
-            type="button"
-            class="px-2 py-1 border-2 border-border rounded-lg bg-surface text-[10px] text-text-muted cursor-pointer transition-all hover:border-accent"
-            title="Convert to regular team"
-            @click="toggleChickenTeam(ti)"
-          >→ Team</button>
-          <button
             type="button"
             class="px-2.5 py-1.5 border-2 border-border rounded-lg bg-surface text-xs text-text-muted cursor-pointer transition-all hover:border-red hover:text-red"
-            @click="localTeams.splice(ti, 1)"
+            @click="localTeams.splice(sortedLocalTeamIndex(ti), 1)"
             title="Remove team"
           >✕</button>
         </div>
@@ -240,9 +226,22 @@
                 ? 'border-chicken-yellow/50 bg-white'
                 : 'border-border bg-surface'"
             />
+            <select
+              v-if="localTeams.length > 1"
+              class="w-14 px-1.5 py-1 border-2 border-border rounded-lg bg-surface text-xs cursor-pointer focus:outline-none focus:border-accent"
+              @change="moveLocalMember(sortedLocalTeamIndex(ti), mi, Number(($event.target as HTMLSelectElement).value)); ($event.target as HTMLSelectElement).selectedIndex = 0"
+            >
+              <option value="" selected disabled>→</option>
+              <option
+                v-for="(otherTeam, oti) in localTeams"
+                :key="oti"
+                :value="oti"
+                :disabled="oti === sortedLocalTeamIndex(ti)"
+              >{{ otherTeam.isChicken ? '🐔 ' : '' }}{{ otherTeam.name || `Team ${oti + 1}` }}</option>
+            </select>
             <button
               type="button"
-              class="px-2 py-1.5 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red"
+              class="px-2 py-1.5 mr-1 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red"
               @click="team.members.splice(mi, 1)"
               title="Remove member"
             >✕</button>
@@ -399,16 +398,22 @@ function addChickenTeam() {
   });
 }
 
-function toggleChickenTeam(index: number) {
-  const team = localTeams.value[index];
-  if (team.isChicken) {
-    // Convert chicken → regular team
-    team.isChicken = false;
-  } else {
-    // Convert regular → chicken (remove existing chicken team first)
-    localTeams.value.forEach((t) => { t.isChicken = false; });
-    team.isChicken = true;
-  }
+// ── Sorted view: chicken team first ──────────────────────
+const sortedLocalTeams = computed(() => {
+  const chickens = localTeams.value.filter((t) => t.isChicken);
+  const hunters = localTeams.value.filter((t) => !t.isChicken);
+  return [...chickens, ...hunters];
+});
+
+function sortedLocalTeamIndex(sortedIdx: number): number {
+  const team = sortedLocalTeams.value[sortedIdx];
+  return localTeams.value.indexOf(team);
+}
+
+function moveLocalMember(fromTeamIdx: number, memberIdx: number, toTeamIdx: number) {
+  if (fromTeamIdx === toTeamIdx) return;
+  const member = localTeams.value[fromTeamIdx].members.splice(memberIdx, 1)[0];
+  localTeams.value[toTeamIdx].members.push(member);
 }
 
 // ── Mode switching ────────────────────────────────────────

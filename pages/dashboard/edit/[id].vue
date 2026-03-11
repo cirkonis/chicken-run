@@ -274,19 +274,18 @@
 
         <!-- Teams (includes chicken team) -->
         <section class="bg-surface border-2 border-border rounded-[18px] p-6">
-          <div class="flex justify-between items-center" :class="teamsOpen ? 'mb-3.5' : ''">
-            <h2 class="m-0 text-lg">Teams</h2>
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold" :class="teams.length > 0 ? 'text-accent-dark' : 'text-text-muted'">
-                {{ teamSummary }}
-              </span>
-              <button
-                type="button"
-                class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
-                :class="teamsOpen ? 'border-accent text-accent' : 'text-text-muted'"
-                @click="teamsOpen = !teamsOpen"
-              >{{ teamsOpen ? 'Close' : 'Manage teams' }}</button>
+          <div class="grid grid-cols-[1fr_auto] items-start" :class="teamsOpen ? 'mb-3.5' : ''">
+            <div>
+              <h2 class="m-0 text-lg">Teams</h2>
+              <p v-if="teams.length > 0" class="text-xs text-text-muted m-0 mt-0.5">{{ teamSummary }}</p>
+              <p v-else class="text-xs text-text-muted m-0 mt-0.5">No teams configured yet</p>
             </div>
+            <button
+              type="button"
+              class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent mt-0.5"
+              :class="teamsOpen ? 'border-accent text-accent' : 'text-text-muted'"
+              @click="teamsOpen = !teamsOpen"
+            >{{ teamsOpen ? 'Close' : 'Manage teams' }}</button>
           </div>
           <TeamManager v-if="teamsOpen" v-model="teams" />
         </section>
@@ -436,7 +435,7 @@ const teamSummary = computed(() => {
   if (chickenMembers > 0) {
     parts.push(`${chickenMembers} 🐔`);
   }
-  return parts.join(", ") || "None";
+  return parts.join(" against ") || "None";
 });
 
 async function doEndHunt() {

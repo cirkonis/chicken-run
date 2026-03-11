@@ -51,7 +51,7 @@ export function useChicken(huntId: string) {
   /** Teams that haven't arrived yet */
   const unarrivedTeams = computed(() => {
     const arrivedIds = new Set(arrivals.value.map((a) => a.teamId));
-    return teams.value.filter((t) => !arrivedIds.has(t.id));
+    return teams.value.filter((t) => !t.isChicken && !arrivedIds.has(t.id));
   });
 
   // ── Data loading ───────────────────────────────────────

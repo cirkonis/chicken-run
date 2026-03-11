@@ -18,7 +18,7 @@
       <header class="mb-4">
         <div class="flex items-start justify-between gap-3 mb-3">
           <div class="flex flex-col gap-1">
-            <button class="bg-transparent border-none text-accent font-semibold text-[13px] cursor-pointer p-0 mb-1 hover:underline" @click="goBack" title="Back">← Back</button>
+            <button class="self-start bg-transparent border-none text-accent font-semibold text-[13px] cursor-pointer p-0 mb-1 hover:underline" @click="goBack" title="Back">← Back</button>
             <h1 class="m-0 text-2xl text-accent-dark">🐔 {{ hunt.name }}</h1>
             <span class="text-sm text-text-muted italic">
               Playing as <strong>{{ auth.state.user?.displayName || 'Unknown' }}</strong>
