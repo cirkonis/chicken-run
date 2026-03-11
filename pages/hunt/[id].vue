@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-7xl mx-auto p-4">
+  <div class="max-w-[700px] mx-auto px-4 py-5">
     <!-- Loading -->
     <LoadingSpinner v-if="pageLoading" message="Loading hunt..." />
 
@@ -38,7 +38,7 @@
           class="flex items-center gap-2 px-4 py-3 bg-[#fff8e1] border-2 border-chicken-yellow rounded-xl mb-3"
         >
           <span class="text-sm flex-1">
-            🏷️ Your team is <strong>{{ myTeam.name }}</strong> — want to pick a name?
+            Your team is <strong>{{ myTeam.name }}</strong> — want to pick a name?
           </span>
           <button
             class="px-3 py-1.5 border-2 border-accent rounded-lg bg-transparent text-accent text-xs font-semibold cursor-pointer transition-all hover:bg-accent hover:text-white"
@@ -57,71 +57,113 @@
         </div>
       </header>
 
-      <main>
-        <!-- Map -->
-        <section class="mb-4">
-          <div class="flex gap-2 mb-2.5">
-            <button class="flex items-center gap-1.5 px-4 py-2 border-2 border-border rounded-xl cursor-pointer bg-surface text-sm font-semibold transition-all hover:border-accent hover:text-accent" @click="mapOpen = !mapOpen">
-              {{ mapOpen ? "Hide map" : "Show map" }}
-            </button>
+      <main class="flex flex-col gap-4">
+        <!-- Clucking Info -->
+        <section class="bg-[#fff8e1] border-2 border-chicken-yellow rounded-[18px] p-5">
+          <div class="flex justify-between items-center" :class="cluckingOpen ? 'mb-3.5' : ''">
+            <h2 class="m-0 text-lg">Clucking Info</h2>
+            <button
+              type="button"
+              class="px-3 py-1.5 border-2 border-chicken-yellow/40 rounded-lg bg-white/60 text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
+              :class="cluckingOpen ? 'border-accent text-accent' : 'text-text-muted'"
+              @click="cluckingOpen = !cluckingOpen"
+            >{{ cluckingOpen ? 'Hide' : 'Show' }}</button>
           </div>
-          <div v-show="mapOpen" class="max-w-[800px]">
+
+          <div v-show="cluckingOpen">
+            <!-- Money left -->
+            <div class="flex items-center gap-3 px-4 py-3 bg-white/60 border-2 border-chicken-yellow/40 rounded-xl mb-3">
+              <div class="flex-1">
+                <div class="text-xs font-semibold uppercase tracking-wide text-text-muted mb-0.5">Money left</div>
+                <div class="text-2xl font-bold text-accent-dark">{{ moneyLeft }} kr <span class="text-sm font-normal text-text-muted">of {{ moneyTotal }} kr</span></div>
+              </div>
+              <div class="w-16 h-16 rounded-full border-4 border-chicken-yellow flex items-center justify-center">
+                <span class="text-sm font-bold text-accent-dark">{{ moneyPercent }}%</span>
+              </div>
+            </div>
+
+            <!-- Chicken hints -->
+            <HintBox
+              :hints="hints"
+              :show-when-empty="bars.length > 0"
+            />
+          </div>
+        </section>
+
+        <!-- Hunting Grounds -->
+        <section class="bg-surface border-2 border-border rounded-[18px] p-5">
+          <div class="flex justify-between items-center" :class="mapOpen ? 'mb-3.5' : ''">
+            <h2 class="m-0 text-lg">Hunting Grounds</h2>
+            <button
+              type="button"
+              class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
+              :class="mapOpen ? 'border-accent text-accent' : 'text-text-muted'"
+              @click="mapOpen = !mapOpen"
+            >{{ mapOpen ? 'Hide map' : 'Show map' }}</button>
+          </div>
+          <div v-show="mapOpen">
             <div ref="mapEl" class="h-[420px] w-full rounded-2xl overflow-hidden border-2 border-border max-[900px]:h-[300px]"></div>
-            <div class="flex gap-4 mt-2 px-3 py-2 bg-surface rounded-[10px] border border-border text-xs items-center">
+            <div class="flex flex-wrap gap-3 mt-2 px-3 py-2 bg-bg rounded-[10px] border border-border text-xs items-center">
               <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red"></span> Not visited</span>
               <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-green"></span> Visited</span>
-              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray"></span> Skipping</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray"></span> Suggest skip</span>
               <span class="flex-1"></span>
               <button
                 class="flex items-center gap-1 px-2.5 py-1 border-2 rounded-lg cursor-pointer text-xs font-semibold transition-all"
-                :class="locationActive ? 'border-blue bg-blue/10 text-blue' : 'border-border bg-surface text-text-muted hover:border-accent hover:text-accent'"
+                :class="locationActive ? 'border-blue bg-blue/10 text-blue' : 'border-border bg-bg text-text-muted hover:border-accent hover:text-accent'"
                 @click="toggleUserLocation"
                 title="Show my location"
-              >📍 {{ locationActive ? 'Tracking' : 'My location' }}</button>
+              >{{ locationActive ? 'Tracking' : 'My location' }}</button>
             </div>
           </div>
         </section>
 
-        <section>
-          <!-- Hints -->
-          <HintBox
-            :hints="hints"
-            :show-when-empty="bars.length > 0"
-          />
-
-          <!-- Toolbar -->
-          <div class="flex gap-2 items-center mb-2.5" v-if="bars.length">
-            <input v-model="filter" placeholder="Search bars..." class="flex-1 px-2.5 py-2 border-2 border-border rounded-[10px] text-sm bg-surface focus:outline-none focus:border-accent" />
-            <select v-model="statusFilter" class="px-2.5 py-2 border-2 border-border rounded-[10px] bg-surface text-[13px]">
-              <option value="all">All</option>
-              <option value="unchecked">Unchecked</option>
-              <option value="checked">Visited</option>
-              <option value="not_checking">Skipping</option>
-            </select>
+        <!-- Bars -->
+        <section class="bg-surface border-2 border-border rounded-[18px] p-5">
+          <div class="flex justify-between items-center" :class="barsOpen ? 'mb-3.5' : ''">
+            <h2 class="m-0 text-lg">Bars <span v-if="bars.length" class="text-sm font-normal text-text-muted">({{ bars.length }})</span></h2>
+            <button
+              type="button"
+              class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
+              :class="barsOpen ? 'border-accent text-accent' : 'text-text-muted'"
+              @click="barsOpen = !barsOpen"
+            >{{ barsOpen ? 'Hide bars' : 'Show bars' }}</button>
           </div>
+          <div v-show="barsOpen">
+            <!-- Toolbar -->
+            <div class="flex gap-2 items-center mb-2.5" v-if="bars.length">
+              <input v-model="filter" placeholder="Search bars..." class="flex-1 px-2.5 py-2 border-2 border-border rounded-[10px] text-sm bg-bg focus:outline-none focus:border-accent" />
+              <select v-model="statusFilter" class="px-2.5 py-2 border-2 border-border rounded-[10px] bg-bg text-[13px]">
+                <option value="all">All</option>
+                <option value="unchecked">Unchecked</option>
+                <option value="checked">Visited</option>
+                <option value="not_checking">Suggest skip</option>
+              </select>
+            </div>
 
-          <!-- Stats -->
-          <StatsGrid :counts="statusCounts" />
+            <!-- Stats -->
+            <StatsGrid :counts="statusCounts" />
 
-          <div v-if="error" class="p-3 border-2 border-red bg-[#fef0ef] rounded-xl text-sm">{{ error }}</div>
+            <div v-if="error" class="p-3 border-2 border-red bg-[#fef0ef] rounded-xl text-sm">{{ error }}</div>
 
-          <!-- Empty state -->
-          <div v-if="!bars.length" class="py-8 px-5 border-2 border-dashed border-border rounded-2xl text-center text-text-muted">
-            <p class="my-1 text-lg">🐔 The chickens are hiding somewhere...</p>
-            <p class="my-1">Waiting for the host to set up the bar list.</p>
+            <!-- Empty state -->
+            <div v-if="!bars.length" class="py-8 px-5 border-2 border-dashed border-border rounded-2xl text-center text-text-muted">
+              <p class="my-1 text-lg">🐔 The chickens are hiding somewhere...</p>
+              <p class="my-1">Waiting for the host to set up the bar list.</p>
+            </div>
+
+            <!-- Bar list -->
+            <ul v-else-if="bars.length" class="list-none p-0 m-0 grid gap-2">
+              <BarListItem
+                v-for="b in filteredBars"
+                :key="b.id"
+                :bar="b"
+                :selected="b.id === selectedBarId"
+                @toggle="toggleStatus"
+                @select="onBarSelect"
+              />
+            </ul>
           </div>
-
-          <!-- Bar list -->
-          <ul v-else-if="bars.length" class="list-none p-0 m-0 grid gap-2">
-            <BarListItem
-              v-for="b in filteredBars"
-              :key="b.id"
-              :bar="b"
-              :selected="b.id === selectedBarId"
-              @toggle="toggleStatus"
-              @select="onBarSelect"
-            />
-          </ul>
         </section>
       </main>
 
@@ -138,7 +180,6 @@
         >
           <div class="bg-surface rounded-[20px] p-7 w-[380px] max-w-[90vw] shadow-[0_16px_48px_rgba(0,0,0,0.2)]">
             <div class="text-center mb-5">
-              <div class="text-3xl mb-2">🏷️</div>
               <div class="text-lg font-bold mb-1">Name your team</div>
               <p class="text-sm text-text-muted leading-relaxed m-0">
                 This is a <strong>one-time thing</strong> — once you confirm, the name is locked in forever.
@@ -216,9 +257,16 @@ const {
 // Wire map repaint into hunt actions (uses filtered list so map matches the bar list)
 setOnMarkersChanged(() => paintMarkers(filteredBars.value));
 
+// ── Money (placeholder) ─────────────────────────────────
+const moneyTotal = ref(1000);
+const moneyLeft = ref(1000);
+const moneyPercent = computed(() => Math.round((moneyLeft.value / moneyTotal.value) * 100));
+
 // ── Map toggle ───────────────────────────────────────────
 const mapEl = ref<HTMLDivElement | null>(null);
+const cluckingOpen = ref(true);
 const mapOpen = ref(true);
+const barsOpen = ref(true);
 
 watch(mapOpen, (open) => {
   if (open) nextTick(() => invalidateSize());

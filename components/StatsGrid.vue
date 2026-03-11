@@ -22,7 +22,7 @@ const props = withDefaults(
     labels?: { unchecked: string; checked: string; not_checking: string };
   }>(),
   {
-    labels: () => ({ unchecked: "To check", checked: "Visited", not_checking: "Skipping" }),
+    labels: () => ({ unchecked: "To check", checked: "Visited", not_checking: "Suggest skip" }),
   }
 );
 

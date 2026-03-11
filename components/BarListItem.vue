@@ -50,7 +50,7 @@ withDefaults(
   }>(),
   {
     selected: false,
-    labels: () => ({ checked: "Mark as visited", not_checking: "Skip this one" }),
+    labels: () => ({ checked: "Mark as visited", not_checking: "Suggest skipping" }),
   }
 );
 defineEmits<{
