@@ -85,6 +85,7 @@ export function mapTeam(row: Record<string, any>): Team {
     huntId: row.hunt_id,
     name: row.name,
     renamed: row.renamed,
+    isChicken: row.is_chicken ?? false,
     displayOrder: row.display_order,
     joinCode: row.join_code,
     createdAt: row.created_at,

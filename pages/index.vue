@@ -43,15 +43,16 @@
             <button
               v-for="member in teamMembers"
               :key="member.name"
-              class="px-4 py-3 border-2 rounded-xl text-sm font-semibold text-left transition-all"
+              class="px-4 py-3 border-2 rounded-xl text-sm font-semibold text-left transition-all cursor-pointer"
               :class="member.joined
-                ? 'border-border bg-bg text-text-muted opacity-50 cursor-not-allowed'
-                : 'border-border bg-bg cursor-pointer hover:border-accent hover:text-accent'"
-              :disabled="member.joined || joinLoading"
+                ? 'border-green bg-[#f0faf4] text-green hover:border-green/80'
+                : 'border-border bg-bg hover:border-accent hover:text-accent'"
+              :disabled="joinLoading"
               @click="joinAsGuest(member.name)"
             >
-              {{ member.name }}
-              <span v-if="member.joined" class="text-xs text-text-muted ml-2">(already joined)</span>
+              <span v-if="member.joined">✓ {{ member.name }}</span>
+              <span v-else>{{ member.name }}</span>
+              <span v-if="member.joined" class="text-xs ml-2 opacity-70">Tap to rejoin</span>
             </button>
           </div>
 

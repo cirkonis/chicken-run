@@ -66,47 +66,38 @@
           </div>
 
           <div v-show="codesOpen">
-            <!-- Team codes -->
-            <div v-if="savedTeamCodes.length > 0" class="flex flex-col gap-2 mb-3">
-              <p class="text-xs text-text-muted m-0">Give each team their code to join the hunt.</p>
+            <div v-if="savedTeamCodes.length > 0" class="flex flex-col gap-2">
+              <p class="text-xs text-text-muted m-0 mb-1">Give each team their code to join the hunt.</p>
               <div
                 v-for="tc in savedTeamCodes"
                 :key="tc.name"
-                class="flex items-center gap-2 px-3 py-2.5 bg-bg border-2 border-border rounded-[10px]"
+                class="flex items-center gap-2 px-3 py-2.5 border-2 rounded-[10px]"
+                :class="tc.isChicken
+                  ? 'bg-[#fff8e1] border-chicken-yellow'
+                  : 'bg-bg border-border'"
               >
-                <span class="text-xs text-text-muted truncate min-w-0 flex-1">{{ tc.name }}</span>
+                <span class="text-xs text-text-muted truncate min-w-0 flex-1">
+                  {{ tc.isChicken ? '🐔 ' : '' }}{{ tc.name }}
+                </span>
                 <span class="font-extrabold text-base tracking-[2px] text-accent-dark">{{ tc.code }}</span>
                 <button
                   type="button"
-                  class="px-2 py-1 border-2 border-border rounded-lg bg-surface text-[11px] text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
+                  class="px-2 py-1 border-2 rounded-lg text-[11px] cursor-pointer transition-all"
+                  :class="tc.isChicken
+                    ? 'border-chicken-yellow/40 bg-white/60 text-text-muted hover:border-accent hover:text-accent'
+                    : 'border-border bg-surface text-text-muted hover:border-accent hover:text-accent'"
                   @click="copyCode(tc.code)"
                 >{{ copiedCode === tc.code ? 'Copied!' : 'Copy' }}</button>
                 <button
                   type="button"
                   class="px-2 py-1 border-2 border-accent/30 rounded-lg bg-accent/10 text-[11px] text-accent font-semibold cursor-pointer transition-all hover:bg-accent hover:text-white"
-                  @click="flashCode = { name: tc.name, code: tc.code }"
+                  @click="flashCode = { name: tc.isChicken ? '🐔 Chickens' : tc.name, code: tc.code }"
                 >Flash</button>
               </div>
             </div>
-            <p v-else class="text-xs text-text-muted m-0 mb-3">
+            <p v-else class="text-xs text-text-muted m-0">
               Save teams to get hunt codes for each team.
             </p>
-
-            <!-- Chicken code -->
-            <div class="flex items-center gap-2 px-3 py-2.5 bg-[#fff8e1] border-2 border-chicken-yellow rounded-[10px]">
-              <span class="text-[10px] text-text-muted whitespace-nowrap flex-1">Chicken</span>
-              <span class="font-extrabold text-base tracking-[2px] text-accent-dark">{{ chickenCode }}</span>
-              <button
-                type="button"
-                class="px-2 py-1 border-2 border-chicken-yellow/40 rounded-lg bg-white/60 text-[11px] text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
-                @click="copyCode(chickenCode)"
-              >{{ copiedCode === chickenCode ? 'Copied!' : 'Copy' }}</button>
-              <button
-                type="button"
-                class="px-2 py-1 border-2 border-accent/30 rounded-lg bg-accent/10 text-[11px] text-accent font-semibold cursor-pointer transition-all hover:bg-accent hover:text-white"
-                @click="flashCode = { name: '🐔 Chickens', code: chickenCode }"
-              >Flash</button>
-            </div>
           </div>
         </section>
 
@@ -281,13 +272,13 @@
           </template>
         </section>
 
-        <!-- Teams -->
+        <!-- Teams (includes chicken team) -->
         <section class="bg-surface border-2 border-border rounded-[18px] p-6">
           <div class="flex justify-between items-center" :class="teamsOpen ? 'mb-3.5' : ''">
             <h2 class="m-0 text-lg">Teams</h2>
             <div class="flex items-center gap-2">
               <span class="text-sm font-semibold" :class="teams.length > 0 ? 'text-accent-dark' : 'text-text-muted'">
-                {{ teams.length > 0 ? `${teamMemberCount} members in ${teams.length} team${teams.length !== 1 ? 's' : ''}` : 'None' }}
+                {{ teamSummary }}
               </span>
               <button
                 type="button"
@@ -298,65 +289,6 @@
             </div>
           </div>
           <TeamManager v-if="teamsOpen" v-model="teams" />
-        </section>
-
-        <!-- Chickens -->
-        <section class="bg-[#fffde7] border-2 border-chicken-yellow rounded-[18px] p-6">
-          <div class="flex justify-between items-center mb-3.5">
-            <h2 class="m-0 text-lg">Chickens</h2>
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                class="w-8 h-8 flex items-center justify-center border-2 border-chicken-yellow rounded-lg bg-white text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed"
-                :disabled="chickens.length <= 0"
-                @click="removeChicken"
-              >−</button>
-              <span class="text-sm font-semibold min-w-[80px] text-center">{{ chickens.length }} chicken{{ chickens.length !== 1 ? 's' : '' }}</span>
-              <button
-                type="button"
-                class="w-8 h-8 flex items-center justify-center border-2 border-chicken-yellow rounded-lg bg-white text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent"
-                @click="addChicken"
-              >+</button>
-            </div>
-          </div>
-
-          <p v-if="chickens.length === 0" class="text-text-muted text-sm m-0">
-            No chickens — anyone with the chicken code can join as prey. Add chickens to control who can play.
-          </p>
-
-          <div v-else class="flex flex-col gap-2">
-            <div
-              v-for="(chicken, ci) in chickens"
-              :key="ci"
-              class="flex gap-2 items-center"
-            >
-              <input
-                v-model="chicken.name"
-                type="text"
-                placeholder="Name"
-                class="flex-1 px-2.5 py-2 border-2 border-chicken-yellow rounded-lg text-sm bg-white focus:outline-none focus:border-accent"
-              />
-              <input
-                v-model="chicken.email"
-                type="email"
-                placeholder="email@example.com"
-                class="flex-[2] px-2.5 py-2 border-2 border-chicken-yellow rounded-lg text-sm bg-white focus:outline-none focus:border-accent"
-              />
-              <button
-                type="button"
-                class="px-2 py-1.5 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red"
-                @click="chickens.splice(ci, 1)"
-                title="Remove chicken"
-              >✕</button>
-            </div>
-            <button
-              type="button"
-              class="self-start px-3 py-1.5 border-2 border-dashed border-chicken-yellow rounded-lg bg-transparent text-xs text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
-              @click="addChicken"
-            >
-              + Add another chicken
-            </button>
-          </div>
         </section>
 
         <!-- Submit -->
@@ -447,7 +379,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Hunt, HuntBar, Team, TeamInput, TeamMemberInput, ChickenInput, HuntChicken } from "~/types";
+import type { Hunt, HuntBar, Team, TeamInput, TeamMemberInput, HuntChicken } from "~/types";
 
 const auth = useAuth();
 const router = useRouter();
@@ -462,11 +394,10 @@ const lng = ref("");
 const radius = ref("1500");
 const budget = ref("");
 const hunterCode = ref("");
-const chickenCode = ref("");
 
-// Teams
-const teams = ref<{ name: string; members: TeamMemberInput[] }[]>([]);
-const savedTeamCodes = ref<{ name: string; code: string }[]>([]);
+// Teams (now includes chicken team via isChicken flag)
+const teams = ref<{ name: string; members: TeamMemberInput[]; isChicken?: boolean }[]>([]);
+const savedTeamCodes = ref<{ name: string; code: string; isChicken: boolean }[]>([]);
 
 // Flash code overlay
 const flashCode = ref<{ name: string; code: string } | null>(null);
@@ -479,9 +410,6 @@ function copyCode(code: string) {
   setTimeout(() => { if (copiedCode.value === code) copiedCode.value = ""; }, 2000);
 }
 
-// Chickens
-const chickens = ref<{ name: string; email: string }[]>([]);
-
 // UI state
 const loading = ref(true);
 const loadError = ref("");
@@ -493,6 +421,23 @@ const huntStatus = ref<string>("active");
 const showEndModal = ref(false);
 const showDeleteModal = ref(false);
 const dangerLoading = ref(false);
+
+// Team summary for the header
+const teamSummary = computed(() => {
+  if (teams.value.length === 0) return "None";
+  const hunterTeams = teams.value.filter((t) => !t.isChicken);
+  const chickenTeam = teams.value.find((t) => t.isChicken);
+  const hunterMembers = hunterTeams.reduce((sum, t) => sum + t.members.length, 0);
+  const chickenMembers = chickenTeam?.members.length ?? 0;
+  let parts = [];
+  if (hunterTeams.length > 0) {
+    parts.push(`${hunterMembers} hunters in ${hunterTeams.length} team${hunterTeams.length !== 1 ? 's' : ''}`);
+  }
+  if (chickenMembers > 0) {
+    parts.push(`${chickenMembers} 🐔`);
+  }
+  return parts.join(", ") || "None";
+});
 
 async function doEndHunt() {
   dangerLoading.value = true;
@@ -551,9 +496,6 @@ watch(mapOpen, (open) => {
 
 // Team management UI
 const teamsOpen = ref(false);
-const teamMemberCount = computed(() =>
-  teams.value.reduce((sum, t) => sum + t.members.length, 0)
-);
 
 // Bar management UI
 const barsOpen = ref(false);
@@ -687,17 +629,6 @@ function paintBarMarkers() {
 // Repaint markers when marks change
 watch(markedForRemoval, () => paintBarMarkers());
 
-// ── Chicken helpers ──────────────────────────────────────
-function addChicken() {
-  chickens.value.push({ name: "", email: "" });
-}
-
-function removeChicken() {
-  if (chickens.value.length > 0) {
-    chickens.value.pop();
-  }
-}
-
 // ── Update bars ─────────────────────────────────────────
 async function updateBars() {
   // Exit picking mode when updating bars
@@ -755,7 +686,6 @@ async function loadHunt() {
     radius.value = String(h.radiusMeters);
     budget.value = h.budget != null ? String(h.budget) : "";
     hunterCode.value = h.hunterCode;
-    chickenCode.value = h.chickenCode;
     huntStatus.value = h.status;
 
     // Track saved location for change detection
@@ -766,25 +696,29 @@ async function loadHunt() {
     // Store full bars array
     bars.value = res.bars || [];
 
-    // Populate teams + save their codes for display
+    // Populate teams (with isChicken flag) + save their codes for display
     if (res.teams && res.teams.length > 0) {
       teams.value = res.teams.map((t) => ({
         name: t.name,
         members: (t.members || []).map((m) => ({
           name: m.name,
         })),
+        isChicken: t.isChicken || false,
       }));
       savedTeamCodes.value = res.teams
         .filter((t) => t.joinCode)
-        .map((t) => ({ name: t.name, code: t.joinCode! }));
+        .map((t) => ({ name: t.name, code: t.joinCode!, isChicken: t.isChicken || false }));
     }
 
-    // Populate chickens
-    if (res.chickens && res.chickens.length > 0) {
-      chickens.value = res.chickens.map((c) => ({
-        name: c.name,
-        email: c.email,
-      }));
+    // Auto-migrate old-style chickens: if the hunt has old hunt_chickens rows
+    // but no chicken team, create one in the teams array
+    const hasChickenTeam = teams.value.some((t) => t.isChicken);
+    if (!hasChickenTeam && res.chickens && res.chickens.length > 0) {
+      teams.value.unshift({
+        name: "Chickens",
+        members: res.chickens.map((c) => ({ name: c.name })),
+        isChicken: true,
+      });
     }
 
     // Set loading false FIRST so Vue renders the form (and map container)
@@ -845,10 +779,8 @@ async function saveHunt() {
       .map((t) => ({
         name: t.name.trim(),
         members: t.members.filter((m) => m.name.trim()),
+        isChicken: t.isChicken || false,
       }));
-
-    const chickensPayload: ChickenInput[] = chickens.value
-      .filter((c) => c.name.trim() && c.email.trim());
 
     const saveRes = await auth.authFetch<{ hunt: Hunt }>(`/api/hunts/${huntId}`, {
       method: "PUT",
@@ -859,7 +791,6 @@ async function saveHunt() {
         radiusMeters: Number(radius.value) || 1500,
         budget: budget.value ? Number(budget.value) : null,
         teams: teamsPayload,
-        chickens: chickensPayload,
       },
     });
 

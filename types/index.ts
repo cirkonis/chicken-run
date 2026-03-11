@@ -29,6 +29,7 @@ export interface Team {
   huntId: string;
   name: string;
   renamed: boolean;
+  isChicken: boolean;
   displayOrder: number;
   joinCode?: string;
   createdAt: string;
@@ -47,6 +48,7 @@ export interface TeamMember {
 export interface TeamInput {
   name: string;
   members: TeamMemberInput[];
+  isChicken?: boolean;
 }
 
 export interface TeamMemberInput {

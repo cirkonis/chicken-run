@@ -1,9 +1,9 @@
 import { defineEventHandler, getRouterParam, readBody, createError } from "h3";
 import { getUserClient } from "../../utils/supabase";
-import type { TeamInput, ChickenInput } from "~/types";
+import type { TeamInput } from "~/types";
 
 // PUT /api/hunts/:huntId — edit an existing hunt (creator only)
-// Body: { name?, centerLat?, centerLng?, radiusMeters?, teams?: TeamInput[], chickens?: ChickenInput[] }
+// Body: { name?, centerLat?, centerLng?, radiusMeters?, budget?, teams?: TeamInput[] }
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId!;
   const huntId = getRouterParam(event, "huntId");
@@ -20,7 +20,6 @@ export default defineEventHandler(async (event) => {
     radiusMeters?: number;
     budget?: number | null;
     teams?: TeamInput[];
-    chickens?: ChickenInput[];
   }>(event);
 
   // Verify this hunt exists and user is the creator
@@ -60,7 +59,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Replace teams if provided
+  // Replace teams if provided (includes chicken team via isChicken flag)
   if (body.teams !== undefined) {
     // Save existing team codes so we can re-apply them after re-insert
     // (keyed by team name so renamed teams get a fresh code)
@@ -103,6 +102,7 @@ export default defineEventHandler(async (event) => {
         hunt_id: huntId,
         name: teamName,
         display_order: i,
+        is_chicken: teamInput.isChicken || false,
       };
       const existingCode = codesByName.get(teamName);
       if (existingCode) insertData.join_code = existingCode;
@@ -145,45 +145,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Replace chickens if provided (delete all existing, re-insert)
-  if (body.chickens !== undefined) {
-    // Delete existing chickens
-    const { error: deleteChickensError } = await supabase
-      .from("hunt_chickens")
-      .delete()
-      .eq("hunt_id", huntId);
-
-    if (deleteChickensError) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: `Failed to clear existing chickens: ${deleteChickensError.message}`,
-      });
-    }
-
-    // Insert new chickens
-    const chickensToInsert = (body.chickens || [])
-      .filter((c) => c.name.trim() && c.email.trim())
-      .map((c) => ({
-        hunt_id: huntId,
-        name: c.name.trim(),
-        email: c.email.trim().toLowerCase(),
-      }));
-
-    if (chickensToInsert.length > 0) {
-      const { error: chickensError } = await supabase
-        .from("hunt_chickens")
-        .insert(chickensToInsert);
-
-      if (chickensError) {
-        throw createError({
-          statusCode: 500,
-          statusMessage: `Failed to add chickens: ${chickensError.message}`,
-        });
-      }
-    }
-  }
-
-  // Re-fetch the full hunt with teams and chickens for the response
+  // Re-fetch the full hunt with teams for the response
   const { data: updatedHunt } = await supabase
     .from("hunts")
     .select("*")

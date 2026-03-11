@@ -44,18 +44,18 @@ export function useHunt(huntId: string) {
     return teams.value.find((t) => t.id === myParticipant.teamId) ?? null;
   });
 
-  /** Hunters on the current user's team */
+  /** Pre-registered members on the current user's team */
   const myTeamHunterCount = computed(() => {
     const team = myTeam.value;
-    if (!team) return participants.value.filter((p) => p.role === "hunter").length;
-    return participants.value.filter(
-      (p) => p.role === "hunter" && p.teamId === team.id
-    ).length;
+    if (!team) return totalHunterCount.value;
+    return team.members?.length ?? 0;
   });
 
-  /** Total hunters across all teams in this hunt */
+  /** Total hunters = all pre-registered members across non-chicken teams */
   const totalHunterCount = computed(() =>
-    participants.value.filter((p) => p.role === "hunter").length
+    teams.value
+      .filter((t) => !t.isChicken)
+      .reduce((sum, t) => sum + (t.members?.length ?? 0), 0)
   );
 
   const statusCounts = computed(() => {

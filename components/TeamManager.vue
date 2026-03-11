@@ -61,20 +61,44 @@
         </div>
       </div>
 
-      <!-- Team size selector -->
-      <div>
-        <h3 class="text-sm font-semibold m-0 mb-2">Team Size</h3>
-        <div class="flex gap-2">
-          <button
-            v-for="size in sizes"
-            :key="size"
-            type="button"
-            class="px-4 py-2 border-2 rounded-xl text-sm font-semibold cursor-pointer transition-all"
-            :class="teamSize === size
-              ? 'border-accent bg-accent text-white'
-              : 'border-border bg-bg text-text-muted hover:border-accent hover:text-accent'"
-            @click="teamSize = size"
-          >{{ size === 2 ? 'Pairs (2)' : `Teams of ${size}` }}</button>
+      <!-- Team size + chicken count row -->
+      <div class="grid grid-cols-2 gap-4">
+        <!-- Team size selector -->
+        <div>
+          <h3 class="text-sm font-semibold m-0 mb-2">Team Size</h3>
+          <div class="flex gap-2">
+            <button
+              v-for="size in sizes"
+              :key="size"
+              type="button"
+              class="px-4 py-2 border-2 rounded-xl text-sm font-semibold cursor-pointer transition-all"
+              :class="teamSize === size
+                ? 'border-accent bg-accent text-white'
+                : 'border-border bg-bg text-text-muted hover:border-accent hover:text-accent'"
+              @click="teamSize = size"
+            >{{ size === 2 ? 'Pairs (2)' : `Teams of ${size}` }}</button>
+          </div>
+        </div>
+
+        <!-- Chicken count selector -->
+        <div>
+          <h3 class="text-sm font-semibold m-0 mb-2">🐔 Chickens</h3>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="w-8 h-8 flex items-center justify-center border-2 border-chicken-yellow rounded-lg bg-white text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed"
+              :disabled="chickenCount <= 0"
+              @click="chickenCount--"
+            >−</button>
+            <span class="text-sm font-semibold min-w-[24px] text-center">{{ chickenCount }}</span>
+            <button
+              type="button"
+              class="w-8 h-8 flex items-center justify-center border-2 border-chicken-yellow rounded-lg bg-white text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed"
+              :disabled="chickenCount >= maxChickenCount"
+              @click="chickenCount++"
+            >+</button>
+          </div>
+          <p class="text-[11px] text-text-muted m-0 mt-1">Randomly picked from the roster</p>
         </div>
       </div>
 
@@ -90,15 +114,24 @@
         Add at least 2 members with a name to generate teams.
       </p>
 
+      <p v-if="chickenCount > 0 && chickenCount >= validMemberCount" class="text-xs text-red m-0">
+        You need more members than chickens — hunters need teams too!
+      </p>
+
       <!-- Generated teams -->
       <div v-if="hasGenerated && generatedTeams.length > 0" class="flex flex-col gap-3">
         <h3 class="text-sm font-semibold m-0">Generated Teams</h3>
         <div
           v-for="(team, ti) in generatedTeams"
           :key="ti"
-          class="border-2 border-border rounded-xl p-4 bg-bg"
+          class="border-2 rounded-xl p-4"
+          :class="team.isChicken
+            ? 'border-chicken-yellow bg-[#fffde7]'
+            : 'border-border bg-bg'"
         >
-          <div class="font-semibold text-sm mb-2 text-accent-dark">{{ team.name }}</div>
+          <div class="font-semibold text-sm mb-2" :class="team.isChicken ? 'text-[#d4a017]' : 'text-accent-dark'">
+            {{ team.isChicken ? '🐔 ' : '' }}{{ team.name }}
+          </div>
           <div class="flex flex-col gap-1.5">
             <div
               v-for="(member, mi) in team.members"
@@ -132,11 +165,19 @@
           class="text-xs text-text-muted underline cursor-pointer hover:text-accent bg-transparent border-none p-0"
           @click="switchToQuickSetup"
         >Switch to Quick Setup</button>
-        <button
-          type="button"
-          class="px-3 py-1.5 border-2 border-dashed border-border rounded-lg bg-transparent text-xs text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
-          @click="addTeam"
-        >+ Add team</button>
+        <div class="flex gap-2">
+          <button
+            v-if="!hasChickenTeam"
+            type="button"
+            class="px-3 py-1.5 border-2 border-dashed border-chicken-yellow rounded-lg bg-[#fffde7] text-xs text-[#d4a017] font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
+            @click="addChickenTeam"
+          >+ Add chicken team</button>
+          <button
+            type="button"
+            class="px-3 py-1.5 border-2 border-dashed border-border rounded-lg bg-transparent text-xs text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
+            @click="addTeam"
+          >+ Add team</button>
+        </div>
       </div>
 
       <p v-if="localTeams.length === 0" class="text-text-muted text-sm m-0">
@@ -146,15 +187,36 @@
       <div
         v-for="(team, ti) in localTeams"
         :key="ti"
-        class="border-2 border-border rounded-xl p-4 bg-bg"
+        class="border-2 rounded-xl p-4"
+        :class="team.isChicken
+          ? 'border-chicken-yellow bg-[#fffde7]'
+          : 'border-border bg-bg'"
       >
         <div class="flex items-center gap-2 mb-3">
+          <span v-if="team.isChicken" class="text-base">🐔</span>
           <input
             v-model="team.name"
             type="text"
-            class="flex-1 px-3 py-2 border-2 border-border rounded-lg text-sm bg-surface font-semibold focus:outline-none focus:border-accent"
-            :placeholder="`Team ${ti + 1}`"
+            class="flex-1 px-3 py-2 border-2 rounded-lg text-sm font-semibold focus:outline-none focus:border-accent"
+            :class="team.isChicken
+              ? 'border-chicken-yellow bg-white'
+              : 'border-border bg-surface'"
+            :placeholder="team.isChicken ? 'Chickens' : `Team ${ti + 1}`"
           />
+          <button
+            v-if="!team.isChicken"
+            type="button"
+            class="px-2 py-1 border-2 border-chicken-yellow/50 rounded-lg bg-[#fffde7] text-[10px] text-[#d4a017] font-semibold cursor-pointer transition-all hover:border-chicken-yellow"
+            title="Convert to chicken team"
+            @click="toggleChickenTeam(ti)"
+          >🐔</button>
+          <button
+            v-if="team.isChicken"
+            type="button"
+            class="px-2 py-1 border-2 border-border rounded-lg bg-surface text-[10px] text-text-muted cursor-pointer transition-all hover:border-accent"
+            title="Convert to regular team"
+            @click="toggleChickenTeam(ti)"
+          >→ Team</button>
           <button
             type="button"
             class="px-2.5 py-1.5 border-2 border-border rounded-lg bg-surface text-xs text-text-muted cursor-pointer transition-all hover:border-red hover:text-red"
@@ -173,7 +235,10 @@
               v-model="member.name"
               type="text"
               placeholder="Name"
-              class="flex-1 px-2.5 py-2 border-2 border-border rounded-lg text-sm bg-surface focus:outline-none focus:border-accent"
+              class="flex-1 px-2.5 py-2 border-2 rounded-lg text-sm focus:outline-none focus:border-accent"
+              :class="team.isChicken
+                ? 'border-chicken-yellow/50 bg-white'
+                : 'border-border bg-surface'"
             />
             <button
               type="button"
@@ -184,7 +249,8 @@
           </div>
           <button
             type="button"
-            class="self-start px-3 py-1.5 border-2 border-dashed border-border rounded-lg bg-transparent text-xs text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
+            class="self-start px-3 py-1.5 border-2 border-dashed rounded-lg bg-transparent text-xs text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
+            :class="team.isChicken ? 'border-chicken-yellow/50' : 'border-border'"
             @click="team.members.push({ name: '' })"
           >+ Add member</button>
         </div>
@@ -196,7 +262,7 @@
 <script setup lang="ts">
 import type { TeamMemberInput } from "~/types";
 
-type TeamData = { name: string; members: TeamMemberInput[] };
+type TeamData = { name: string; members: TeamMemberInput[]; isChicken?: boolean };
 
 const props = defineProps<{
   modelValue: TeamData[];
@@ -214,6 +280,7 @@ const mode = ref<Mode>(props.modelValue.length > 0 ? "full" : "picker");
 const rosterMembers = ref<TeamMemberInput[]>([{ name: "" }]);
 const sizes = [2, 3, 4] as const;
 const teamSize = ref<2 | 3 | 4>(2);
+const chickenCount = ref(2);
 const generatedTeams = ref<TeamData[]>([]);
 const hasGenerated = ref(false);
 
@@ -221,9 +288,24 @@ const validMemberCount = computed(() =>
   rosterMembers.value.filter((m) => m.name.trim()).length
 );
 
+const maxChickenCount = computed(() =>
+  Math.max(0, validMemberCount.value - 2)
+);
+
+// Clamp chicken count when member count shrinks
+watch(maxChickenCount, (max) => {
+  if (chickenCount.value > max) {
+    chickenCount.value = max;
+  }
+});
+
 // ── Full Control state ────────────────────────────────────
 const localTeams = ref<TeamData[]>(
   JSON.parse(JSON.stringify(props.modelValue))
+);
+
+const hasChickenTeam = computed(() =>
+  localTeams.value.some((t) => t.isChicken)
 );
 
 // ── Sync to parent ────────────────────────────────────────
@@ -252,13 +334,27 @@ function generateTeams() {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  // Chunk into teams
-  const size = teamSize.value;
   const teams: TeamData[] = [];
+
+  // 1. Pick chickens from the shuffled pool
+  const numChickens = Math.min(chickenCount.value, shuffled.length - 2);
+  if (numChickens > 0) {
+    const chickenMembers = shuffled.splice(0, numChickens);
+    teams.push({
+      name: "Chickens",
+      members: chickenMembers,
+      isChicken: true,
+    });
+  }
+
+  // 2. Chunk remaining into hunter teams
+  const size = teamSize.value;
+  let teamNum = 1;
   for (let i = 0; i < shuffled.length; i += size) {
     teams.push({
-      name: `Team ${teams.length + 1}`,
+      name: `Team ${teamNum++}`,
       members: shuffled.slice(i, i + size),
+      isChicken: false,
     });
   }
 
@@ -272,23 +368,47 @@ function moveMember(fromTeam: number, memberIdx: number, toTeam: number) {
   const member = generatedTeams.value[fromTeam].members.splice(memberIdx, 1)[0];
   generatedTeams.value[toTeam].members.push(member);
 
-  // Remove empty teams
+  // Remove empty teams (but not the chicken team)
   generatedTeams.value = generatedTeams.value.filter((t) => t.members.length > 0);
 
-  // Re-number auto-named teams
-  generatedTeams.value.forEach((t, i) => {
-    if (/^Team \d+$/.test(t.name)) {
-      t.name = `Team ${i + 1}`;
+  // Re-number auto-named hunter teams
+  let teamNum = 1;
+  generatedTeams.value.forEach((t) => {
+    if (!t.isChicken && /^Team \d+$/.test(t.name)) {
+      t.name = `Team ${teamNum++}`;
     }
   });
 }
 
 // ── Full Control helpers ──────────────────────────────────
 function addTeam() {
+  const hunterTeams = localTeams.value.filter((t) => !t.isChicken);
   localTeams.value.push({
-    name: `Team ${localTeams.value.length + 1}`,
+    name: `Team ${hunterTeams.length + 1}`,
     members: [{ name: "" }],
+    isChicken: false,
   });
+}
+
+function addChickenTeam() {
+  // Insert chicken team at the beginning
+  localTeams.value.unshift({
+    name: "Chickens",
+    members: [{ name: "" }],
+    isChicken: true,
+  });
+}
+
+function toggleChickenTeam(index: number) {
+  const team = localTeams.value[index];
+  if (team.isChicken) {
+    // Convert chicken → regular team
+    team.isChicken = false;
+  } else {
+    // Convert regular → chicken (remove existing chicken team first)
+    localTeams.value.forEach((t) => { t.isChicken = false; });
+    team.isChicken = true;
+  }
 }
 
 // ── Mode switching ────────────────────────────────────────
@@ -307,6 +427,11 @@ function switchToQuickSetup() {
       .filter((m) => m.name.trim());
     if (allMembers.length > 0) {
       rosterMembers.value = JSON.parse(JSON.stringify(allMembers));
+    }
+    // Restore chicken count from existing chicken team
+    const existingChicken = localTeams.value.find((t) => t.isChicken);
+    if (existingChicken) {
+      chickenCount.value = existingChicken.members.filter((m) => m.name.trim()).length;
     }
   }
   hasGenerated.value = false;

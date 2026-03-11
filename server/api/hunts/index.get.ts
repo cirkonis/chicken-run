@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
   const [teamsResult, barsResult] = await Promise.all([
     supabase
       .from("hunt_teams")
-      .select("hunt_id, id, hunt_team_members(count)")
+      .select("hunt_id, id, is_chicken, hunt_team_members(count)")
       .in("hunt_id", allHuntIds.length > 0 ? allHuntIds : [""]),
     supabase
       .from("hunt_bars")
@@ -75,13 +75,17 @@ export default defineEventHandler(async (event) => {
       .in("hunt_id", allHuntIds.length > 0 ? allHuntIds : [""]),
   ]);
 
-  // Build stats maps
+  // Build stats maps (exclude chicken teams from counts)
   const teamCountMap = new Map<string, number>();
   const memberCountMap = new Map<string, number>();
   for (const t of teamsResult.data || []) {
-    teamCountMap.set(t.hunt_id, (teamCountMap.get(t.hunt_id) || 0) + 1);
+    if (!t.is_chicken) {
+      teamCountMap.set(t.hunt_id, (teamCountMap.get(t.hunt_id) || 0) + 1);
+    }
     const memberCount = (t.hunt_team_members as any)?.[0]?.count ?? 0;
-    memberCountMap.set(t.hunt_id, (memberCountMap.get(t.hunt_id) || 0) + memberCount);
+    if (!t.is_chicken) {
+      memberCountMap.set(t.hunt_id, (memberCountMap.get(t.hunt_id) || 0) + memberCount);
+    }
   }
 
   const barCountMap = new Map<string, number>();

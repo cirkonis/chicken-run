@@ -1,9 +1,9 @@
 import { defineEventHandler, readBody, createError } from "h3";
 import { getUserClient } from "../../utils/supabase";
-import type { TeamInput, ChickenInput } from "~/types";
+import type { TeamInput } from "~/types";
 
-// POST /api/hunts — create a new hunt (optionally with teams and chickens)
-// Body: { name, centerLat, centerLng, radiusMeters?, teams?: TeamInput[], chickens?: ChickenInput[] }
+// POST /api/hunts — create a new hunt (optionally with teams including chicken team)
+// Body: { name, centerLat, centerLng, radiusMeters?, budget?, teams?: TeamInput[] }
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId!;
   const supabase = getUserClient(event);
@@ -15,7 +15,6 @@ export default defineEventHandler(async (event) => {
     radiusMeters?: number;
     budget?: number | null;
     teams?: TeamInput[];
-    chickens?: ChickenInput[];
   }>(event);
 
   if (!body?.name || body.centerLat == null || body.centerLng == null) {
@@ -48,7 +47,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Create teams if provided
+  // Create teams if provided (includes chicken team via isChicken flag)
   let teams: any[] = [];
   if (body.teams && body.teams.length > 0) {
     for (let i = 0; i < body.teams.length; i++) {
@@ -61,6 +60,7 @@ export default defineEventHandler(async (event) => {
           hunt_id: hunt.id,
           name: teamInput.name.trim(),
           display_order: i,
+          is_chicken: teamInput.isChicken || false,
         })
         .select()
         .single();
@@ -81,43 +81,21 @@ export default defineEventHandler(async (event) => {
             name: m.name.trim(),
           }));
 
-        const { error: membersError } = await supabase
-          .from("hunt_team_members")
-          .insert(membersToInsert);
+        if (membersToInsert.length > 0) {
+          const { error: membersError } = await supabase
+            .from("hunt_team_members")
+            .insert(membersToInsert);
 
-        if (membersError) {
-          throw createError({
-            statusCode: 500,
-            statusMessage: `Failed to add team members: ${membersError.message}`,
-          });
+          if (membersError) {
+            throw createError({
+              statusCode: 500,
+              statusMessage: `Failed to add team members: ${membersError.message}`,
+            });
+          }
         }
       }
 
       teams.push(team);
-    }
-  }
-
-  // Create chickens if provided
-  if (body.chickens && body.chickens.length > 0) {
-    const chickensToInsert = body.chickens
-      .filter((c) => c.name.trim() && c.email.trim())
-      .map((c) => ({
-        hunt_id: hunt.id,
-        name: c.name.trim(),
-        email: c.email.trim().toLowerCase(),
-      }));
-
-    if (chickensToInsert.length > 0) {
-      const { error: chickensError } = await supabase
-        .from("hunt_chickens")
-        .insert(chickensToInsert);
-
-      if (chickensError) {
-        throw createError({
-          statusCode: 500,
-          statusMessage: `Failed to add chickens: ${chickensError.message}`,
-        });
-      }
     }
   }
 
