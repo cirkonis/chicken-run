@@ -170,6 +170,15 @@
                 v-if="barCount > 0"
                 type="button"
                 class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
+                :class="copiedBarList ? 'border-green text-green' : 'text-text-muted'"
+                @click="exportBarList"
+              >
+                {{ copiedBarList ? '✓ Copied!' : 'Export list' }}
+              </button>
+              <button
+                v-if="barCount > 0"
+                type="button"
+                class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
                 :class="barsOpen ? 'border-accent text-accent' : 'text-text-muted'"
                 @click="barsOpen = !barsOpen"
               >
@@ -452,12 +461,20 @@ function takeSavedSnapshot() {
 // Flash code overlay
 const flashCode = ref<{ name: string; code: string } | null>(null);
 
-// Copy helper
+// Copy helpers
 const copiedCode = ref("");
 function copyCode(code: string) {
   navigator.clipboard.writeText(code);
   copiedCode.value = code;
   setTimeout(() => { if (copiedCode.value === code) copiedCode.value = ""; }, 2000);
+}
+
+const copiedBarList = ref(false);
+function exportBarList() {
+  const list = bars.value.map((b) => b.name).join("\n");
+  navigator.clipboard.writeText(list);
+  copiedBarList.value = true;
+  setTimeout(() => { copiedBarList.value = false; }, 2000);
 }
 
 // UI state
