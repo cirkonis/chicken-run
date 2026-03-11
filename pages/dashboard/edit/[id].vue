@@ -18,11 +18,20 @@
     <template v-else>
       <header class="mb-6">
         <NuxtLink to="/dashboard" class="text-[13px] text-accent no-underline font-semibold hover:underline">← Dashboard</NuxtLink>
-        <h1 class="mt-1 mb-0 text-2xl text-accent-dark">✏️ Edit Hunt</h1>
-        <p class="text-text-muted text-sm mt-1">Update hunt details and manage teams.</p>
+        <h1 class="mt-1 mb-0 text-2xl text-accent-dark">✏️ Manage Hunt</h1>
+        <p class="text-text-muted text-sm mt-1">Update your hunt, manage teams, and get ready to go.</p>
       </header>
 
       <form @submit.prevent="saveHunt" class="flex flex-col gap-5">
+        <!-- Hunt Name -->
+        <input
+          v-model="huntName"
+          type="text"
+          placeholder="Hunt name"
+          class="px-4 py-3 border-2 border-border rounded-[18px] text-lg font-semibold bg-surface w-full focus:outline-none focus:border-accent"
+          required
+        />
+
         <!-- Hunt Codes (read only) -->
         <section class="bg-surface border-2 border-border rounded-[18px] p-6">
           <h2 class="m-0 mb-3.5 text-lg">Hunt Codes</h2>
@@ -38,58 +47,59 @@
           </div>
         </section>
 
-        <!-- Hunt Details -->
+        <!-- Hunting Grounds -->
         <section class="bg-surface border-2 border-border rounded-[18px] p-6">
-          <h2 class="m-0 mb-3.5 text-lg">Hunt Details</h2>
-          <div class="flex flex-col gap-2.5">
-            <input
-              v-model="huntName"
-              type="text"
-              placeholder="Hunt name"
-              class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent"
-              required
-            />
-            <div class="grid grid-cols-3 gap-2">
-              <label class="flex flex-col gap-1">
-                <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Lat</span>
-                <input v-model="lat" inputmode="decimal" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" required />
-              </label>
-              <label class="flex flex-col gap-1">
-                <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Lng</span>
-                <input v-model="lng" inputmode="decimal" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" required />
-              </label>
-              <label class="flex flex-col gap-1">
-                <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Radius (m)</span>
-                <input v-model="radius" inputmode="numeric" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" />
-              </label>
-            </div>
-            <!-- Location picker map -->
-            <div>
-              <div class="flex items-center gap-2 mb-1.5">
-                <button
-                  type="button"
-                  class="px-3 py-1.5 border-2 rounded-lg text-xs font-semibold cursor-pointer transition-all"
-                  :class="pickingMode
-                    ? 'border-accent bg-accent text-white'
-                    : 'border-border bg-bg text-text-muted hover:border-accent hover:text-accent'"
-                  @click="togglePickingMode"
-                >
-                  {{ pickingMode ? '📍 Picking...' : '📍 Set location' }}
-                </button>
-                <button
-                  v-if="locationChanged"
-                  type="button"
-                  class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
-                  @click="resetLocation"
-                >
-                  ↩ Put it back
-                </button>
-                <span v-if="pickingMode" class="text-xs text-accent italic animate-pulse">Click the map to move the pin</span>
+          <div class="flex justify-between items-center" :class="mapOpen ? 'mb-3.5' : ''">
+            <h2 class="m-0 text-lg">Hunting Grounds</h2>
+            <button
+              type="button"
+              class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
+              :class="mapOpen ? 'border-accent text-accent' : 'text-text-muted'"
+              @click="mapOpen = !mapOpen"
+            >{{ mapOpen ? 'Hide map' : 'Show map' }}</button>
+          </div>
+          <div v-show="mapOpen" class="flex flex-col gap-2.5">
+              <div class="grid grid-cols-3 gap-2">
+                <label class="flex flex-col gap-1">
+                  <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Lat</span>
+                  <input v-model="lat" inputmode="decimal" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" required />
+                </label>
+                <label class="flex flex-col gap-1">
+                  <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Lng</span>
+                  <input v-model="lng" inputmode="decimal" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" required />
+                </label>
+                <label class="flex flex-col gap-1">
+                  <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Radius (m)</span>
+                  <input v-model="radius" inputmode="numeric" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" />
+                </label>
               </div>
-              <div class="rounded-xl overflow-hidden border-2 transition-colors" :class="pickingMode ? 'border-accent' : 'border-border'">
-                <div ref="pickerMapEl" class="h-[280px] w-full"></div>
+              <!-- Location picker map -->
+              <div>
+                <div class="flex items-center gap-2 mb-1.5">
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 border-2 rounded-lg text-xs font-semibold cursor-pointer transition-all"
+                    :class="pickingMode
+                      ? 'border-accent bg-accent text-white'
+                      : 'border-border bg-bg text-text-muted hover:border-accent hover:text-accent'"
+                    @click="togglePickingMode"
+                  >
+                    {{ pickingMode ? '📍 Picking...' : '📍 Set new location' }}
+                  </button>
+                  <button
+                    v-if="locationChanged"
+                    type="button"
+                    class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
+                    @click="resetLocation"
+                  >
+                    ↩ Put it back
+                  </button>
+                  <span v-if="pickingMode" class="text-xs text-accent italic animate-pulse">Click the map to move the pin</span>
+                </div>
+                <div class="rounded-xl overflow-hidden border-2 transition-colors" :class="pickingMode ? 'border-accent' : 'border-border'">
+                  <div ref="pickerMapEl" class="h-[280px] w-full"></div>
+                </div>
               </div>
-            </div>
           </div>
         </section>
 
@@ -210,84 +220,21 @@
 
         <!-- Teams -->
         <section class="bg-surface border-2 border-border rounded-[18px] p-6">
-          <div class="flex justify-between items-center mb-3.5">
+          <div class="flex justify-between items-center" :class="teamsOpen ? 'mb-3.5' : ''">
             <h2 class="m-0 text-lg">Teams</h2>
             <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold" :class="teams.length > 0 ? 'text-accent-dark' : 'text-text-muted'">
+                {{ teams.length > 0 ? `${teamMemberCount} members in ${teams.length} team${teams.length !== 1 ? 's' : ''}` : 'None' }}
+              </span>
               <button
                 type="button"
-                class="w-8 h-8 flex items-center justify-center border-2 border-border rounded-lg bg-bg text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed"
-                :disabled="teams.length <= 0"
-                @click="removeTeam"
-              >−</button>
-              <span class="text-sm font-semibold min-w-[60px] text-center">{{ teams.length }} team{{ teams.length !== 1 ? 's' : '' }}</span>
-              <button
-                type="button"
-                class="w-8 h-8 flex items-center justify-center border-2 border-border rounded-lg bg-bg text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent"
-                @click="addTeam"
-              >+</button>
+                class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
+                :class="teamsOpen ? 'border-accent text-accent' : 'text-text-muted'"
+                @click="teamsOpen = !teamsOpen"
+              >{{ teamsOpen ? 'Close' : 'Manage teams' }}</button>
             </div>
           </div>
-
-          <p v-if="teams.length === 0" class="text-text-muted text-sm m-0">
-            No teams configured. Add teams to organize players into groups.
-          </p>
-
-          <div v-else class="flex flex-col gap-4">
-            <div
-              v-for="(team, ti) in teams"
-              :key="ti"
-              class="border-2 border-border rounded-xl p-4 bg-bg"
-            >
-              <div class="flex items-center gap-2 mb-3">
-                <input
-                  v-model="team.name"
-                  type="text"
-                  class="flex-1 px-3 py-2 border-2 border-border rounded-lg text-sm bg-surface font-semibold focus:outline-none focus:border-accent"
-                  :placeholder="`Team ${ti + 1}`"
-                />
-                <button
-                  type="button"
-                  class="px-2.5 py-1.5 border-2 border-border rounded-lg bg-surface text-xs text-text-muted cursor-pointer transition-all hover:border-red hover:text-red"
-                  @click="teams.splice(ti, 1)"
-                  title="Remove team"
-                >✕</button>
-              </div>
-
-              <div class="flex flex-col gap-2">
-                <div
-                  v-for="(member, mi) in team.members"
-                  :key="mi"
-                  class="flex gap-2 items-center"
-                >
-                  <input
-                    v-model="member.name"
-                    type="text"
-                    placeholder="Name"
-                    class="flex-1 px-2.5 py-2 border-2 border-border rounded-lg text-sm bg-surface focus:outline-none focus:border-accent"
-                  />
-                  <input
-                    v-model="member.email"
-                    type="email"
-                    placeholder="email@example.com"
-                    class="flex-[2] px-2.5 py-2 border-2 border-border rounded-lg text-sm bg-surface focus:outline-none focus:border-accent"
-                  />
-                  <button
-                    type="button"
-                    class="px-2 py-1.5 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red"
-                    @click="team.members.splice(mi, 1)"
-                    title="Remove member"
-                  >✕</button>
-                </div>
-                <button
-                  type="button"
-                  class="self-start px-3 py-1.5 border-2 border-dashed border-border rounded-lg bg-transparent text-xs text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
-                  @click="team.members.push({ name: '', email: '' })"
-                >
-                  + Add member
-                </button>
-              </div>
-            </div>
-          </div>
+          <TeamManager v-if="teamsOpen" v-model="teams" />
         </section>
 
         <!-- Chickens -->
@@ -503,6 +450,18 @@ const savedLng = ref("");
 const savedRadius = ref("");
 const searchingBars = ref(false);
 
+// Hunting Grounds (map) UI — open by default
+const mapOpen = ref(true);
+watch(mapOpen, (open) => {
+  if (open) nextTick(() => invalidatePickerSize());
+});
+
+// Team management UI
+const teamsOpen = ref(false);
+const teamMemberCount = computed(() =>
+  teams.value.reduce((sum, t) => sum + t.members.length, 0)
+);
+
 // Bar management UI
 const barsOpen = ref(false);
 const barFilter = ref("");
@@ -635,20 +594,6 @@ function paintBarMarkers() {
 // Repaint markers when marks change
 watch(markedForRemoval, () => paintBarMarkers());
 
-// ── Team helpers ─────────────────────────────────────────
-function addTeam() {
-  teams.value.push({
-    name: `Team ${teams.value.length + 1}`,
-    members: [{ name: "", email: "" }],
-  });
-}
-
-function removeTeam() {
-  if (teams.value.length > 0) {
-    teams.value.pop();
-  }
-}
-
 // ── Chicken helpers ──────────────────────────────────────
 function addChicken() {
   chickens.value.push({ name: "", email: "" });
@@ -662,6 +607,10 @@ function removeChicken() {
 
 // ── Update bars ─────────────────────────────────────────
 async function updateBars() {
+  // Exit picking mode when updating bars
+  pickingMode.value = false;
+  setPickingEnabled(false);
+
   error.value = "";
   searchingBars.value = true;
 

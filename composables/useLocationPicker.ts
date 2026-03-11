@@ -20,6 +20,11 @@ export function useLocationPicker() {
   /** Enable or disable location picking on map click. */
   function setPickingEnabled(enabled: boolean) {
     pickingEnabled = enabled;
+    // Toggle crosshair cursor on the map container so users know they're placing a pin
+    const container = map?.getContainer();
+    if (container) {
+      container.style.cursor = enabled ? "crosshair" : "";
+    }
   }
 
   /** Initialise the picker map inside `el`, centered on `center`. */
