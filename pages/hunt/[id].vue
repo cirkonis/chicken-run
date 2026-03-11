@@ -26,10 +26,6 @@
               <template v-if="myTeamHunterCount"> · {{ myTeamHunterCount }} hunter{{ myTeamHunterCount === 1 ? '' : 's' }}</template>
             </span>
           </div>
-          <div v-if="isCreator" class="bg-surface border-2 border-border rounded-[10px] px-3 py-1.5 text-center">
-            <span class="block text-[10px] text-text-muted uppercase tracking-wide">Hunter Code</span>
-            <span class="font-bold text-base tracking-widest text-accent-dark">{{ hunt.hunterCode }}</span>
-          </div>
         </div>
 
         <!-- Team rename banner (one-time, for team members) -->

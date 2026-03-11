@@ -58,8 +58,20 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Replace teams if provided (delete all existing, re-insert)
+  // Replace teams if provided
   if (body.teams !== undefined) {
+    // Save existing team codes so we can re-apply them after re-insert
+    // (keyed by team name so renamed teams get a fresh code)
+    const { data: existingTeams } = await supabase
+      .from("hunt_teams")
+      .select("name, join_code")
+      .eq("hunt_id", huntId);
+
+    const codesByName = new Map<string, string>();
+    for (const t of existingTeams || []) {
+      codesByName.set(t.name, t.join_code);
+    }
+
     // Delete existing teams (cascade deletes team members too)
     const { error: deleteError } = await supabase
       .from("hunt_teams")
@@ -82,14 +94,20 @@ export default defineEventHandler(async (event) => {
     // Insert new teams
     for (let i = 0; i < body.teams.length; i++) {
       const teamInput = body.teams[i];
+      const teamName = teamInput.name.trim();
+
+      // Re-use the old join_code if the team name matches, otherwise let DB generate a new one
+      const insertData: Record<string, any> = {
+        hunt_id: huntId,
+        name: teamName,
+        display_order: i,
+      };
+      const existingCode = codesByName.get(teamName);
+      if (existingCode) insertData.join_code = existingCode;
 
       const { data: team, error: teamError } = await supabase
         .from("hunt_teams")
-        .insert({
-          hunt_id: huntId,
-          name: teamInput.name.trim(),
-          display_order: i,
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -100,23 +118,26 @@ export default defineEventHandler(async (event) => {
         });
       }
 
-      // Insert team members
+      // Insert team members (name only, no email required)
       if (teamInput.members && teamInput.members.length > 0) {
-        const membersToInsert = teamInput.members.map((m) => ({
-          team_id: team.id,
-          name: m.name.trim(),
-          email: m.email.trim().toLowerCase(),
-        }));
+        const membersToInsert = teamInput.members
+          .filter((m) => m.name.trim())
+          .map((m) => ({
+            team_id: team.id,
+            name: m.name.trim(),
+          }));
 
-        const { error: membersError } = await supabase
-          .from("hunt_team_members")
-          .insert(membersToInsert);
+        if (membersToInsert.length > 0) {
+          const { error: membersError } = await supabase
+            .from("hunt_team_members")
+            .insert(membersToInsert);
 
-        if (membersError) {
-          throw createError({
-            statusCode: 500,
-            statusMessage: `Failed to add team members: ${membersError.message}`,
-          });
+          if (membersError) {
+            throw createError({
+              statusCode: 500,
+              statusMessage: `Failed to add team members: ${membersError.message}`,
+            });
+          }
         }
       }
     }

@@ -77,6 +77,7 @@ export function mapTeam(row: Record<string, any>): Team {
     name: row.name,
     renamed: row.renamed,
     displayOrder: row.display_order,
+    joinCode: row.join_code,
     createdAt: row.created_at,
     members: row.hunt_team_members?.map(mapTeamMember),
   };
@@ -87,7 +88,7 @@ export function mapTeamMember(row: Record<string, any>): TeamMember {
     id: row.id,
     teamId: row.team_id,
     name: row.name,
-    email: row.email,
+    email: row.email ?? undefined,
     createdAt: row.created_at,
   };
 }

@@ -46,12 +46,6 @@
               placeholder="Name"
               class="flex-1 px-2.5 py-2 border-2 border-border rounded-lg text-sm bg-bg focus:outline-none focus:border-accent"
             />
-            <input
-              v-model="member.email"
-              type="email"
-              placeholder="email@example.com"
-              class="flex-[2] px-2.5 py-2 border-2 border-border rounded-lg text-sm bg-bg focus:outline-none focus:border-accent"
-            />
             <button
               type="button"
               class="px-2 py-1.5 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red disabled:opacity-30 disabled:cursor-not-allowed"
@@ -62,7 +56,7 @@
           <button
             type="button"
             class="self-start px-3 py-1.5 border-2 border-dashed border-border rounded-lg bg-transparent text-xs text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
-            @click="rosterMembers.push({ name: '', email: '' })"
+            @click="rosterMembers.push({ name: '' })"
           >+ Add member</button>
         </div>
       </div>
@@ -93,7 +87,7 @@
       >{{ hasGenerated ? 'Remake Teams' : 'Generate Teams' }}</button>
 
       <p v-if="validMemberCount < 2 && rosterMembers.length > 0" class="text-xs text-red m-0">
-        Add at least 2 members with name and email to generate teams.
+        Add at least 2 members with a name to generate teams.
       </p>
 
       <!-- Generated teams -->
@@ -112,7 +106,6 @@
               class="flex gap-2 items-center"
             >
               <span class="flex-1 text-sm truncate">{{ member.name }}</span>
-              <span class="text-xs text-text-muted truncate max-w-[140px]">{{ member.email }}</span>
               <select
                 class="px-2 py-1 border-2 border-border rounded-lg bg-surface text-xs cursor-pointer focus:outline-none focus:border-accent"
                 @change="moveMember(ti, mi, Number(($event.target as HTMLSelectElement).value)); ($event.target as HTMLSelectElement).selectedIndex = 0"
@@ -182,12 +175,6 @@
               placeholder="Name"
               class="flex-1 px-2.5 py-2 border-2 border-border rounded-lg text-sm bg-surface focus:outline-none focus:border-accent"
             />
-            <input
-              v-model="member.email"
-              type="email"
-              placeholder="email@example.com"
-              class="flex-[2] px-2.5 py-2 border-2 border-border rounded-lg text-sm bg-surface focus:outline-none focus:border-accent"
-            />
             <button
               type="button"
               class="px-2 py-1.5 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red"
@@ -198,7 +185,7 @@
           <button
             type="button"
             class="self-start px-3 py-1.5 border-2 border-dashed border-border rounded-lg bg-transparent text-xs text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
-            @click="team.members.push({ name: '', email: '' })"
+            @click="team.members.push({ name: '' })"
           >+ Add member</button>
         </div>
       </div>
@@ -224,14 +211,14 @@ type Mode = "picker" | "quick" | "full";
 const mode = ref<Mode>(props.modelValue.length > 0 ? "full" : "picker");
 
 // ── Quick Setup state ─────────────────────────────────────
-const rosterMembers = ref<TeamMemberInput[]>([{ name: "", email: "" }]);
+const rosterMembers = ref<TeamMemberInput[]>([{ name: "" }]);
 const sizes = [2, 3, 4] as const;
 const teamSize = ref<2 | 3 | 4>(2);
 const generatedTeams = ref<TeamData[]>([]);
 const hasGenerated = ref(false);
 
 const validMemberCount = computed(() =>
-  rosterMembers.value.filter((m) => m.name.trim() && m.email.trim()).length
+  rosterMembers.value.filter((m) => m.name.trim()).length
 );
 
 // ── Full Control state ────────────────────────────────────
@@ -253,8 +240,8 @@ watch(generatedTeams, (val) => {
 // ── Team generation ───────────────────────────────────────
 function generateTeams() {
   const valid = rosterMembers.value
-    .filter((m) => m.name.trim() && m.email.trim())
-    .map((m) => ({ name: m.name.trim(), email: m.email.trim() }));
+    .filter((m) => m.name.trim())
+    .map((m) => ({ name: m.name.trim() }));
 
   if (valid.length < 2) return;
 
@@ -300,7 +287,7 @@ function moveMember(fromTeam: number, memberIdx: number, toTeam: number) {
 function addTeam() {
   localTeams.value.push({
     name: `Team ${localTeams.value.length + 1}`,
-    members: [{ name: "", email: "" }],
+    members: [{ name: "" }],
   });
 }
 
@@ -317,7 +304,7 @@ function switchToQuickSetup() {
   if (localTeams.value.length > 0) {
     const allMembers = localTeams.value
       .flatMap((t) => t.members)
-      .filter((m) => m.name.trim() || m.email.trim());
+      .filter((m) => m.name.trim());
     if (allMembers.length > 0) {
       rosterMembers.value = JSON.parse(JSON.stringify(allMembers));
     }

@@ -3,40 +3,56 @@ import { createClient } from "@supabase/supabase-js";
 import { getAdminClient } from "../../utils/supabase";
 
 // POST /api/hunts/join-guest
-// Body: { code: "ABC123", email: "player@example.com" }
-// Matches email to a pre-registered team member, creates a guest user, joins the hunt.
-// Falls back to allowing any email if the hunt has no teams (backward compat).
+// Body: { code: "ABC123", name: "Alice" }
+// Matches name to a pre-registered team member (or chicken), creates a guest
+// user, and joins the hunt. The code can be a team join_code or a chicken_code.
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ code: string; email: string }>(event);
+  const body = await readBody<{ code: string; name: string }>(event);
 
   if (!body?.code?.trim()) {
     throw createError({ statusCode: 400, statusMessage: "Hunt code is required" });
   }
 
-  if (!body?.email?.trim()) {
-    throw createError({ statusCode: 400, statusMessage: "Email is required" });
+  if (!body?.name?.trim()) {
+    throw createError({ statusCode: 400, statusMessage: "Name is required" });
   }
 
   const code = body.code.trim().toUpperCase();
-  const email = body.email.trim().toLowerCase();
+  const memberName = body.name.trim();
   const admin = getAdminClient();
 
-  // 1. Validate the hunt code exists and determine role before creating a user
-  //    Check hunter_code first, then chicken_code
-  let huntCheck: { id: string; name: string } | null = null;
+  // 1. Validate the code and determine what kind it is
+  //    Check team join codes first, then chicken codes, then hunter codes
+  let huntId: string | null = null;
   let joiningAs: "hunter" | "chicken" = "hunter";
 
-  const { data: hunterMatch } = await admin
-    .from("hunts")
-    .select("id, name")
-    .eq("hunter_code", code)
-    .eq("status", "active")
+  // Check team join code
+  const { data: teamMatch } = await admin
+    .from("hunt_teams")
+    .select("id, hunt_id, name, hunts!inner(id, name, status)")
+    .eq("join_code", code)
     .single();
 
-  if (hunterMatch) {
-    huntCheck = hunterMatch;
+  if (teamMatch && (teamMatch as any).hunts?.status === "active") {
+    huntId = teamMatch.hunt_id;
     joiningAs = "hunter";
+
+    // Verify the name exists on this team
+    const { data: member } = await admin
+      .from("hunt_team_members")
+      .select("name")
+      .eq("team_id", teamMatch.id)
+      .ilike("name", memberName)
+      .single();
+
+    if (!member) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: "Name not found on this team. Check with your host.",
+      });
+    }
   } else {
+    // Check chicken code
     const { data: chickenMatch } = await admin
       .from("hunts")
       .select("id, name")
@@ -45,88 +61,60 @@ export default defineEventHandler(async (event) => {
       .single();
 
     if (chickenMatch) {
-      huntCheck = chickenMatch;
+      huntId = chickenMatch.id;
       joiningAs = "chicken";
+
+      // Verify the name exists in chickens list
+      const { data: chicken } = await admin
+        .from("hunt_chickens")
+        .select("name")
+        .eq("hunt_id", chickenMatch.id)
+        .ilike("name", memberName)
+        .single();
+
+      if (!chicken) {
+        throw createError({
+          statusCode: 404,
+          statusMessage: "Name not found. Check with your host.",
+        });
+      }
+    } else {
+      // Check hunter code (backward compat — no team code, using hunt-level code)
+      const { data: hunterMatch } = await admin
+        .from("hunts")
+        .select("id, name")
+        .eq("hunter_code", code)
+        .eq("status", "active")
+        .single();
+
+      if (hunterMatch) {
+        huntId = hunterMatch.id;
+        joiningAs = "hunter";
+      }
     }
   }
 
-  if (!huntCheck) {
+  if (!huntId) {
     throw createError({
       statusCode: 404,
       statusMessage: "Invalid hunt code. Check your code and try again.",
     });
   }
 
-  // 2. Validate email against pre-registered list based on role
-  let memberName = email.split("@")[0]; // fallback display name
-
-  if (joiningAs === "hunter") {
-    // Check if hunt has teams — if so, email must match a team member
-    const { data: teams } = await admin
-      .from("hunt_teams")
-      .select("id")
-      .eq("hunt_id", huntCheck.id)
-      .limit(1);
-
-    if (teams && teams.length > 0) {
-      const { data: member } = await admin
-        .from("hunt_team_members")
-        .select("name, team_id, hunt_teams!inner(hunt_id)")
-        .eq("hunt_teams.hunt_id", huntCheck.id)
-        .eq("email", email)
-        .single();
-
-      if (!member) {
-        throw createError({
-          statusCode: 404,
-          statusMessage: "Email not registered for this hunt. Ask your host to add you to a team.",
-        });
-      }
-
-      memberName = member.name;
-    }
-  } else {
-    // Chicken: check if hunt has pre-registered chickens — if so, email must match
-    const { data: chickens } = await admin
-      .from("hunt_chickens")
-      .select("id")
-      .eq("hunt_id", huntCheck.id)
-      .limit(1);
-
-    if (chickens && chickens.length > 0) {
-      const { data: chicken } = await admin
-        .from("hunt_chickens")
-        .select("name")
-        .eq("hunt_id", huntCheck.id)
-        .eq("email", email)
-        .single();
-
-      if (!chicken) {
-        throw createError({
-          statusCode: 404,
-          statusMessage: "Email not registered as a chicken for this hunt. Ask your host to add you.",
-        });
-      }
-
-      memberName = chicken.name;
-    }
-  }
-
-  // 4. Reuse an existing guest user for this real email, or create a new one.
-  //    This prevents duplicate auth users (and duplicate hunt_participants rows)
-  //    when the same person joins multiple times.
+  // 2. Reuse an existing guest user for this code + name, or create a new one.
   const config = useRuntimeConfig();
-  const guestPassword = crypto.randomUUID(); // fresh password each sign-in
+  const guestPassword = crypto.randomUUID();
   let guestUserId: string;
   let guestEmail: string;
 
-  // Check if a guest auth user already exists for this real email
-  const { data: existingGuestId } = await admin.rpc("find_guest_by_real_email", {
-    p_email: email,
+  // Check if a guest auth user already exists for this team_code + member_name
+  const { data: existingGuestId } = await admin.rpc("find_guest_by_team_code", {
+    p_team_code: code,
+    p_member_name: memberName,
   });
 
   if (existingGuestId) {
-    // Reuse existing guest: update password (so we can sign in) and display name
+    // Reuse existing guest: update password so we can sign in
     guestUserId = existingGuestId;
     const { data: existingUser } = await admin.auth.admin.getUserById(guestUserId);
     guestEmail = existingUser?.user?.email || "";
@@ -136,7 +124,8 @@ export default defineEventHandler(async (event) => {
       user_metadata: {
         display_name: memberName,
         is_guest: true,
-        real_email: email,
+        team_code: code,
+        member_name: memberName,
       },
     });
 
@@ -147,7 +136,7 @@ export default defineEventHandler(async (event) => {
       });
     }
   } else {
-    // No existing guest — create a new one
+    // Create a new guest auth user
     const guestId = crypto.randomUUID().slice(0, 8);
     guestEmail = `guest_${guestId}@chickenrun.guest`;
 
@@ -159,7 +148,8 @@ export default defineEventHandler(async (event) => {
         user_metadata: {
           display_name: memberName,
           is_guest: true,
-          real_email: email,
+          team_code: code,
+          member_name: memberName,
         },
       });
 
@@ -173,10 +163,7 @@ export default defineEventHandler(async (event) => {
     guestUserId = newUser.user.id;
   }
 
-  // 5. Sign them in to get a session
-  //    Use a THROWAWAY client — never call signInWithPassword on the
-  //    singleton admin client, because it overwrites the auth state and
-  //    makes all subsequent admin requests act as this guest user.
+  // 3. Sign them in to get a session
   const tempClient = createClient(config.public.supabaseUrl, config.public.supabaseAnonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -193,13 +180,13 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // 6. Join the hunt (pass email so join_hunt_by_code can match team)
+  // 4. Join the hunt
   const { data: joinResult, error: joinError } = await admin.rpc(
     "join_hunt_by_code",
     {
       p_code: code,
       p_user_id: guestUserId,
-      p_email: email,
+      p_member_name: memberName,
     }
   );
 

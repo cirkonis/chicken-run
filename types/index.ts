@@ -25,6 +25,7 @@ export interface Team {
   name: string;
   renamed: boolean;
   displayOrder: number;
+  joinCode?: string;
   createdAt: string;
   members?: TeamMember[];
 }
@@ -33,7 +34,7 @@ export interface TeamMember {
   id: string;
   teamId: string;
   name: string;
-  email: string;
+  email?: string;
   createdAt: string;
 }
 
@@ -45,7 +46,6 @@ export interface TeamInput {
 
 export interface TeamMemberInput {
   name: string;
-  email: string;
 }
 
 // ── Chicken (pre-registered prey player) ────────────────

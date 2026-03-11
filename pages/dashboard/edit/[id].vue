@@ -32,17 +32,59 @@
           required
         />
 
-        <!-- Hunt Codes (read only) -->
+        <!-- Hunt Codes -->
         <section class="bg-surface border-2 border-border rounded-[18px] p-6">
-          <h2 class="m-0 mb-3.5 text-lg">Hunt Codes</h2>
-          <div class="grid grid-cols-2 gap-3">
-            <div class="flex items-center gap-2 px-3 py-2.5 bg-bg border-2 border-border rounded-[10px]">
-              <span class="text-[10px] text-text-muted whitespace-nowrap">Hunter</span>
-              <span class="font-extrabold text-base tracking-[2px] text-accent-dark flex-1">{{ hunterCode }}</span>
+          <div class="flex justify-between items-center" :class="codesOpen ? 'mb-3.5' : ''">
+            <h2 class="m-0 text-lg">Hunt Codes</h2>
+            <button
+              type="button"
+              class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
+              :class="codesOpen ? 'border-accent text-accent' : 'text-text-muted'"
+              @click="codesOpen = !codesOpen"
+            >{{ codesOpen ? 'Hide' : 'Show' }}</button>
+          </div>
+
+          <div v-show="codesOpen">
+            <!-- Team codes -->
+            <div v-if="savedTeamCodes.length > 0" class="flex flex-col gap-2 mb-3">
+              <p class="text-xs text-text-muted m-0">Give each team their code to join the hunt.</p>
+              <div
+                v-for="tc in savedTeamCodes"
+                :key="tc.name"
+                class="flex items-center gap-2 px-3 py-2.5 bg-bg border-2 border-border rounded-[10px]"
+              >
+                <span class="text-xs text-text-muted truncate min-w-0 flex-1">{{ tc.name }}</span>
+                <span class="font-extrabold text-base tracking-[2px] text-accent-dark">{{ tc.code }}</span>
+                <button
+                  type="button"
+                  class="px-2 py-1 border-2 border-border rounded-lg bg-surface text-[11px] text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
+                  @click="copyCode(tc.code)"
+                >{{ copiedCode === tc.code ? 'Copied!' : 'Copy' }}</button>
+                <button
+                  type="button"
+                  class="px-2 py-1 border-2 border-accent/30 rounded-lg bg-accent/10 text-[11px] text-accent font-semibold cursor-pointer transition-all hover:bg-accent hover:text-white"
+                  @click="flashCode = { name: tc.name, code: tc.code }"
+                >Flash</button>
+              </div>
             </div>
+            <p v-else class="text-xs text-text-muted m-0 mb-3">
+              Save teams to get hunt codes for each team.
+            </p>
+
+            <!-- Chicken code -->
             <div class="flex items-center gap-2 px-3 py-2.5 bg-[#fff8e1] border-2 border-chicken-yellow rounded-[10px]">
-              <span class="text-[10px] text-text-muted whitespace-nowrap">Chicken</span>
-              <span class="font-extrabold text-base tracking-[2px] text-accent-dark flex-1">{{ chickenCode }}</span>
+              <span class="text-[10px] text-text-muted whitespace-nowrap flex-1">Chicken</span>
+              <span class="font-extrabold text-base tracking-[2px] text-accent-dark">{{ chickenCode }}</span>
+              <button
+                type="button"
+                class="px-2 py-1 border-2 border-chicken-yellow/40 rounded-lg bg-white/60 text-[11px] text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
+                @click="copyCode(chickenCode)"
+              >{{ copiedCode === chickenCode ? 'Copied!' : 'Copy' }}</button>
+              <button
+                type="button"
+                class="px-2 py-1 border-2 border-accent/30 rounded-lg bg-accent/10 text-[11px] text-accent font-semibold cursor-pointer transition-all hover:bg-accent hover:text-white"
+                @click="flashCode = { name: '🐔 Chickens', code: chickenCode }"
+              >Flash</button>
             </div>
           </div>
         </section>
@@ -365,6 +407,20 @@
         :loading="removeLoading"
         @confirm="doRemoveBars"
       />
+
+      <!-- Flash Code overlay -->
+      <Teleport to="body">
+        <div
+          v-if="flashCode"
+          class="fixed inset-0 bg-[#1a1a2e]/95 flex flex-col items-center justify-center z-[9999] cursor-pointer select-none"
+          @click="flashCode = null"
+        >
+          <div class="text-white/60 text-sm font-semibold tracking-wider uppercase mb-3">{{ flashCode.name }}</div>
+          <div class="text-white text-[72px] sm:text-[96px] font-black tracking-[12px] sm:tracking-[16px] leading-none">{{ flashCode.code }}</div>
+          <div class="text-white/40 text-xs mt-6">Enter this code to join the hunt</div>
+          <div class="text-white/25 text-[11px] mt-10">Tap anywhere to close</div>
+        </div>
+      </Teleport>
     </template>
   </div>
 </template>
@@ -388,6 +444,18 @@ const chickenCode = ref("");
 
 // Teams
 const teams = ref<{ name: string; members: TeamMemberInput[] }[]>([]);
+const savedTeamCodes = ref<{ name: string; code: string }[]>([]);
+
+// Flash code overlay
+const flashCode = ref<{ name: string; code: string } | null>(null);
+
+// Copy helper
+const copiedCode = ref("");
+function copyCode(code: string) {
+  navigator.clipboard.writeText(code);
+  copiedCode.value = code;
+  setTimeout(() => { if (copiedCode.value === code) copiedCode.value = ""; }, 2000);
+}
 
 // Chickens
 const chickens = ref<{ name: string; email: string }[]>([]);
@@ -449,6 +517,9 @@ const savedLat = ref("");
 const savedLng = ref("");
 const savedRadius = ref("");
 const searchingBars = ref(false);
+
+// Hunt Codes UI
+const codesOpen = ref(true);
 
 // Hunting Grounds (map) UI — open by default
 const mapOpen = ref(true);
@@ -672,15 +743,17 @@ async function loadHunt() {
     // Store full bars array
     bars.value = res.bars || [];
 
-    // Populate teams
+    // Populate teams + save their codes for display
     if (res.teams && res.teams.length > 0) {
       teams.value = res.teams.map((t) => ({
         name: t.name,
         members: (t.members || []).map((m) => ({
           name: m.name,
-          email: m.email,
         })),
       }));
+      savedTeamCodes.value = res.teams
+        .filter((t) => t.joinCode)
+        .map((t) => ({ name: t.name, code: t.joinCode! }));
     }
 
     // Populate chickens
@@ -713,47 +786,17 @@ async function loadHunt() {
 
 // ── Validation ───────────────────────────────────────────
 function validateForm(): string | null {
-  // Validate team emails (no duplicates within or across teams)
+  // Validate team member names (no duplicates within a team)
   for (const team of teams.value) {
-    const emails = team.members
-      .map((m) => m.email.trim().toLowerCase())
+    const names = team.members
+      .map((m) => m.name.trim().toLowerCase())
       .filter(Boolean);
     const seen = new Set<string>();
-    for (const email of emails) {
-      if (seen.has(email)) {
-        return `Duplicate email "${email}" in ${team.name || "a team"}. Each member needs a unique email.`;
+    for (const name of names) {
+      if (seen.has(name)) {
+        return `Duplicate name "${name}" in ${team.name || "a team"}. Each member needs a unique name.`;
       }
-      seen.add(email);
-    }
-  }
-
-  const allTeamEmails = teams.value.flatMap((t) =>
-    t.members.map((m) => m.email.trim().toLowerCase()).filter(Boolean)
-  );
-  const globalSeen = new Set<string>();
-  for (const email of allTeamEmails) {
-    if (globalSeen.has(email)) {
-      return `Email "${email}" appears in multiple teams. Each person can only be on one team.`;
-    }
-    globalSeen.add(email);
-  }
-
-  // Validate chicken emails (no duplicates)
-  const chickenEmails = chickens.value
-    .map((c) => c.email.trim().toLowerCase())
-    .filter(Boolean);
-  const chickenSeen = new Set<string>();
-  for (const email of chickenEmails) {
-    if (chickenSeen.has(email)) {
-      return `Duplicate chicken email "${email}". Each chicken needs a unique email.`;
-    }
-    chickenSeen.add(email);
-  }
-
-  // Check no overlap between hunter and chicken emails
-  for (const email of chickenEmails) {
-    if (globalSeen.has(email)) {
-      return `Email "${email}" is in both a team and the chicken list. A person can't be both a hunter and a chicken.`;
+      seen.add(name);
     }
   }
 
@@ -777,13 +820,13 @@ async function saveHunt() {
       .filter((t) => t.name.trim())
       .map((t) => ({
         name: t.name.trim(),
-        members: t.members.filter((m) => m.name.trim() && m.email.trim()),
+        members: t.members.filter((m) => m.name.trim()),
       }));
 
     const chickensPayload: ChickenInput[] = chickens.value
       .filter((c) => c.name.trim() && c.email.trim());
 
-    await auth.authFetch(`/api/hunts/${huntId}`, {
+    const saveRes = await auth.authFetch<{ hunt: Hunt }>(`/api/hunts/${huntId}`, {
       method: "PUT",
       body: {
         name: huntName.value.trim(),
@@ -794,6 +837,13 @@ async function saveHunt() {
         chickens: chickensPayload,
       },
     });
+
+    // Update team codes from response (new teams get fresh codes)
+    if (saveRes.hunt.teams) {
+      savedTeamCodes.value = saveRes.hunt.teams
+        .filter((t) => t.joinCode)
+        .map((t) => ({ name: t.name, code: t.joinCode! }));
+    }
 
     router.push("/dashboard");
   } catch (e: any) {

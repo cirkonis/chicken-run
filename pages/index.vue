@@ -6,7 +6,7 @@
     <template v-else>
       <!-- ─── Hero: Join a Hunt ─────────────────────────── -->
       <div class="text-center pt-8 pb-2">
-        <h1 class="m-0 text-4xl text-accent-dark">🐔 Chicken Run</h1>
+        <h1 class="m-0 text-4xl text-accent-dark">🐔 The <s>great</s> drunk chicken hunt</h1>
         <p class="text-text-muted text-[15px] mt-1.5">The chickens are hiding. Find them before the money runs out.</p>
       </div>
 
@@ -30,28 +30,37 @@
           </button>
         </div>
 
-        <!-- Step 2: Enter email -->
-        <div v-if="joinStep === 'email'" class="flex flex-col gap-3">
+        <!-- Step 2: Pick your name -->
+        <div v-if="joinStep === 'pick'" class="flex flex-col gap-3">
           <div class="flex items-center justify-center gap-2 p-2.5 bg-[#f0faf4] border-2 border-green rounded-[10px] text-sm">
             <span class="text-text-muted">Joining:</span>
-            <span class="font-bold text-green">{{ foundHuntName || 'Hunt' }}</span>
+            <span class="font-bold text-green">{{ foundHuntName }}</span>
+            <template v-if="foundTeamName"> · <span class="font-semibold">{{ foundTeamName }}</span></template>
           </div>
-          <p class="text-text-muted text-[13px] m-0">Enter the email your host registered you with.</p>
-          <input
-            ref="emailInput"
-            v-model="joinEmail"
-            type="email"
-            placeholder="your@email.com"
-            class="px-5 py-3.5 border-[3px] border-border rounded-[14px] text-lg font-semibold text-center bg-bg focus:outline-none focus:border-accent"
-            @keyup.enter="joinAsGuest"
-          />
-          <div v-if="joinError" class="px-3 py-2 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ joinError }}</div>
-          <div class="flex gap-2.5">
-            <button class="px-5 py-3.5 border-2 border-border rounded-[14px] cursor-pointer bg-surface font-semibold text-sm text-text-muted transition-all hover:border-accent hover:text-accent" @click="joinStep = 'code'">← Back</button>
-            <button class="flex-1 px-6 py-3.5 border-0 rounded-[14px] cursor-pointer bg-accent text-white font-bold text-base transition-colors text-center no-underline block hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed" :disabled="joinLoading" @click="joinAsGuest">
-              {{ joinLoading ? "Joining..." : "Let's Hunt!" }}
+          <p class="text-text-muted text-[13px] m-0">Tap your name to join.</p>
+
+          <div class="flex flex-col gap-2">
+            <button
+              v-for="member in teamMembers"
+              :key="member.name"
+              class="px-4 py-3 border-2 rounded-xl text-sm font-semibold text-left transition-all"
+              :class="member.joined
+                ? 'border-border bg-bg text-text-muted opacity-50 cursor-not-allowed'
+                : 'border-border bg-bg cursor-pointer hover:border-accent hover:text-accent'"
+              :disabled="member.joined || joinLoading"
+              @click="joinAsGuest(member.name)"
+            >
+              {{ member.name }}
+              <span v-if="member.joined" class="text-xs text-text-muted ml-2">(already joined)</span>
             </button>
           </div>
+
+          <div v-if="joinError" class="px-3 py-2 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ joinError }}</div>
+
+          <button
+            class="self-start px-3 py-2 border-2 border-border rounded-[14px] cursor-pointer bg-surface font-semibold text-sm text-text-muted transition-all hover:border-accent hover:text-accent"
+            @click="joinStep = 'code'; joinError = ''"
+          >← Back</button>
         </div>
       </div>
 
@@ -139,13 +148,14 @@ const router = useRouter();
 const { signInWithGoogle } = useSupabaseClient();
 
 // ── Join flow ─────────────────────────────────────────────
-const joinStep = ref<"code" | "email">("code");
+const joinStep = ref<"code" | "pick">("code");
 const joinCode = ref("");
-const joinEmail = ref("");
 const joinError = ref("");
 const joinLoading = ref(false);
 const foundHuntName = ref("");
-const emailInput = ref<HTMLInputElement | null>(null);
+const foundTeamName = ref("");
+const teamMembers = ref<{ name: string; joined: boolean }[]>([]);
+const codeType = ref<"team" | "chicken" | "">("");
 
 // ── Host auth (Google OAuth) ──────────────────────────────
 const authError = ref("");
@@ -166,23 +176,25 @@ async function validateCode() {
   joinLoading.value = true;
 
   try {
-    // Move to email step (full validation happens on join)
-    foundHuntName.value = "";
-    joinStep.value = "email";
-    nextTick(() => emailInput.value?.focus());
+    const res = await $fetch<any>("/api/hunts/validate-code", {
+      method: "POST",
+      body: { code },
+    });
+
+    foundHuntName.value = res.huntName;
+    foundTeamName.value = res.teamName || "";
+    teamMembers.value = res.members || [];
+    codeType.value = res.type;
+    joinStep.value = "pick";
+  } catch (e: any) {
+    joinError.value = e?.data?.message || e?.message || "Invalid code";
   } finally {
     joinLoading.value = false;
   }
 }
 
-async function joinAsGuest() {
+async function joinAsGuest(memberName: string) {
   const code = joinCode.value.trim();
-  const emailVal = joinEmail.value.trim();
-
-  if (!emailVal) {
-    joinError.value = "Enter your email address";
-    return;
-  }
 
   joinError.value = "";
   joinLoading.value = true;
@@ -190,7 +202,7 @@ async function joinAsGuest() {
   try {
     const res = await $fetch<any>("/api/hunts/join-guest", {
       method: "POST",
-      body: { code, email: emailVal },
+      body: { code, name: memberName },
     });
 
     // Store the session
