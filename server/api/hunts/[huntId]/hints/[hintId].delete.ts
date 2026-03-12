@@ -2,15 +2,15 @@ import { defineEventHandler, getRouterParam, createError } from "h3";
 import { getAdminClient } from "../../../../utils/supabase";
 import { deleteHintImage } from "../../../../utils/storage";
 
-// DELETE /api/hunts/:huntId/arrivals/:arrivalId — remove an arrival
+// DELETE /api/hunts/:huntId/hints/:hintId — delete a single hint
 // Uses admin client to bypass RLS; auth validated by middleware.
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId!;
   const huntId = getRouterParam(event, "huntId");
-  const arrivalId = getRouterParam(event, "arrivalId");
+  const hintId = getRouterParam(event, "hintId");
 
-  if (!huntId || !arrivalId) {
-    throw createError({ statusCode: 400, statusMessage: "Missing huntId or arrivalId" });
+  if (!huntId || !hintId) {
+    throw createError({ statusCode: 400, statusMessage: "Missing huntId or hintId" });
   }
 
   const admin = getAdminClient();
@@ -36,46 +36,46 @@ export default defineEventHandler(async (event) => {
   if (!isChicken && !isCreator) {
     throw createError({
       statusCode: 403,
-      statusMessage: "Only chickens or the host can manage arrivals",
+      statusMessage: "Only chickens or the host can delete hints",
     });
   }
 
-  // ── Fetch arrival to get image_path before deleting ─────
-  const { data: arrival } = await admin
-    .from("hunt_arrivals")
+  // ── Fetch hint to get image_path before deleting ────────
+  const { data: hint } = await admin
+    .from("hints")
     .select("id, image_path")
-    .eq("id", arrivalId)
+    .eq("id", hintId)
     .eq("hunt_id", huntId)
     .single();
 
-  if (!arrival) {
-    throw createError({ statusCode: 404, statusMessage: "Arrival not found" });
+  if (!hint) {
+    throw createError({ statusCode: 404, statusMessage: "Hint not found" });
   }
 
-  // ── Delete the arrival row ──────────────────────────────
+  // ── Delete the hint row ─────────────────────────────────
   const { error } = await admin
-    .from("hunt_arrivals")
+    .from("hints")
     .delete()
-    .eq("id", arrivalId)
+    .eq("id", hintId)
     .eq("hunt_id", huntId);
 
   if (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to delete arrival: ${error.message}`,
+      statusMessage: `Failed to delete hint: ${error.message}`,
     });
   }
 
-  // ── Clean up storage if arrival had an image ────────────
+  // ── Clean up storage if hint had an image ───────────────
   // Removes the file from the bucket. storage_used_bytes is not decremented
   // because we don't track per-file sizes — it's a soft quota so minor
   // over-count is acceptable (the real disk space is freed).
-  if (arrival.image_path) {
+  if (hint.image_path) {
     try {
-      await deleteHintImage(arrival.image_path);
+      await deleteHintImage(hint.image_path);
     } catch (cleanupErr: any) {
-      // Non-fatal — arrival is already deleted
-      console.error("Arrival image cleanup failed:", cleanupErr.message);
+      // Non-fatal — hint is already deleted
+      console.error("Hint image cleanup failed:", cleanupErr.message);
     }
   }
 

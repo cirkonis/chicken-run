@@ -205,6 +205,13 @@
                   <span class="text-[11px] text-text-muted opacity-70 whitespace-nowrap">
                     {{ h.authorName }} · {{ formatTime(h.createdAt) }}
                   </span>
+                  <button
+                    v-if="h.authorId === auth.state.user?.id || isCreator"
+                    type="button"
+                    class="px-1.5 py-0.5 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red"
+                    title="Delete hint"
+                    @click="pendingDeleteHintId = h.id; showDeleteHintConfirm = true"
+                  >✕</button>
                 </div>
                 <img
                   v-if="h.imageUrl"
@@ -251,8 +258,8 @@
                   <button
                     type="button"
                     class="px-1.5 py-0.5 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red"
-                    title="Undo"
-                    @click="deleteArrival(a.id)"
+                    title="Remove arrival"
+                    @click="pendingDeleteArrivalId = a.id; showDeleteArrivalConfirm = true"
                   >✕</button>
                 </div>
                 <p v-if="a.note" class="text-sm text-text-muted m-0 pl-9">{{ a.note }}</p>
@@ -363,6 +370,26 @@
       </footer>
     </template>
 
+    <!-- Delete hint confirmation -->
+    <ConfirmModal
+      v-model="showDeleteHintConfirm"
+      title="Delete this hint?"
+      message="This hint will be permanently removed. Hunters will no longer see it."
+      confirm-label="Delete"
+      variant="danger"
+      @confirm="confirmDeleteHint"
+    />
+
+    <!-- Delete arrival confirmation -->
+    <ConfirmModal
+      v-model="showDeleteArrivalConfirm"
+      title="Remove this arrival?"
+      message="This will remove the team's arrival record. You can re-add them later."
+      confirm-label="Remove"
+      variant="danger"
+      @confirm="confirmDeleteArrival"
+    />
+
     <!-- Error toast -->
     <Teleport to="body">
       <div
@@ -401,7 +428,7 @@ const {
   isCreator,
   budgetTotal, budgetSpent, budgetRemaining, budgetPercent,
   unarrivedTeams,
-  loadHunt, addHint, addExpense, deleteExpense, addArrival, deleteArrival,
+  loadHunt, addHint, deleteHint, addExpense, deleteExpense, addArrival, deleteArrival,
   formatTime,
   startPolling, stopPolling,
 } = useChicken(huntId);
@@ -499,6 +526,26 @@ async function recordArrival() {
   if (!selectedArrivalTeamId.value) return;
   await addArrival(selectedArrivalTeamId.value, arrivalNote.value.trim(), selectedArrivalImage.value);
   cancelArrivalPicker();
+}
+
+// ── Delete confirmations ─────────────────────────────────
+const pendingDeleteHintId = ref<string | null>(null);
+const showDeleteHintConfirm = ref(false);
+const pendingDeleteArrivalId = ref<string | null>(null);
+const showDeleteArrivalConfirm = ref(false);
+
+async function confirmDeleteHint() {
+  if (!pendingDeleteHintId.value) return;
+  await deleteHint(pendingDeleteHintId.value);
+  showDeleteHintConfirm.value = false;
+  pendingDeleteHintId.value = null;
+}
+
+async function confirmDeleteArrival() {
+  if (!pendingDeleteArrivalId.value) return;
+  await deleteArrival(pendingDeleteArrivalId.value);
+  showDeleteArrivalConfirm.value = false;
+  pendingDeleteArrivalId.value = null;
 }
 
 // ── Helpers ─────────────────────────────────────────────

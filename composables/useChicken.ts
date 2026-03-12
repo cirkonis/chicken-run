@@ -112,6 +112,17 @@ export function useChicken(huntId: string) {
     }
   }
 
+  async function deleteHint(hintId: string) {
+    try {
+      await auth.authFetch(`/api/hunts/${huntId}/hints/${hintId}`, {
+        method: "DELETE",
+      });
+      hints.value = hints.value.filter((h) => h.id !== hintId);
+    } catch (e: any) {
+      error.value = e?.data?.message || e?.message || "Failed to delete hint";
+    }
+  }
+
   // ── Expenses ───────────────────────────────────────────
   async function addExpense(amount: number, note: string = "") {
     if (amount <= 0) return;
@@ -255,6 +266,7 @@ export function useChicken(huntId: string) {
     // Actions
     loadHunt,
     addHint,
+    deleteHint,
     addExpense,
     deleteExpense,
     addArrival,
