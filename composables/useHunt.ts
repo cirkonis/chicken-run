@@ -4,7 +4,7 @@
  */
 import type { Hunt, HuntBar, Hint, Participant, Team, HuntExpense, HuntArrival, HuntCheckIn } from "~/types";
 
-const POLL_INTERVAL = 30_000;
+const POLL_INTERVAL = 10_000;
 
 export function useHunt(huntId: string) {
   const auth = useAuth();

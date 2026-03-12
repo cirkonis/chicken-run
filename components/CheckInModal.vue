@@ -62,11 +62,6 @@
           </select>
         </div>
 
-        <!-- Privacy note -->
-        <p class="text-xs text-text-muted italic m-0 mb-4">
-          We won't tell others exactly where you are -- that's your call.
-        </p>
-
         <!-- Actions -->
         <div class="flex gap-2.5">
           <button

@@ -56,7 +56,28 @@
         </div>
       </header>
 
-      <main class="flex flex-col gap-4">
+      <!-- Tab bar -->
+      <div class="flex gap-1 p-1 bg-bg border-2 border-border rounded-xl mb-4">
+        <button
+          type="button"
+          class="flex-1 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all border-0"
+          :class="activeTab === 'hunt'
+            ? 'bg-accent text-white shadow-sm'
+            : 'bg-transparent text-text-muted hover:text-accent'"
+          @click="activeTab = 'hunt'"
+        >Hunt</button>
+        <button
+          type="button"
+          class="flex-1 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all border-0"
+          :class="activeTab === 'feed'
+            ? 'bg-accent text-white shadow-sm'
+            : 'bg-transparent text-text-muted hover:text-accent'"
+          @click="activeTab = 'feed'"
+        >Feed</button>
+      </div>
+
+      <!-- Hunt tab content -->
+      <main v-show="activeTab === 'hunt'" class="flex flex-col gap-4">
         <!-- Clucking Info -->
         <section class="bg-[#fff8e1] border-2 border-chicken-yellow rounded-[18px] p-5">
           <div class="flex justify-between items-center" :class="cluckingOpen ? 'mb-3.5' : ''">
@@ -211,9 +232,14 @@
         </section>
       </main>
 
-      <footer class="text-center py-5 text-[13px] text-text-muted border-t border-border mt-6">
+      <footer v-show="activeTab === 'hunt'" class="text-center py-5 text-[13px] text-text-muted border-t border-border mt-6">
         <p class="m-0">🐔 Don't be a chicken — check every bar. Or at least the ones that look fun.</p>
       </footer>
+
+      <!-- Feed tab content -->
+      <div v-show="activeTab === 'feed'">
+        <CheckInFeed :check-ins="checkIns" :bars="bars" :teams="teams" :arrivals="arrivals" />
+      </div>
 
       <!-- Team Rename Modal -->
       <Teleport to="body">
@@ -322,6 +348,9 @@ const {
 
 // Wire map repaint into hunt actions (uses filtered list so map matches the bar list)
 setOnMarkersChanged(() => paintMarkers(filteredBars.value));
+
+// ── Tabs ─────────────────────────────────────────────────
+const activeTab = ref<'hunt' | 'feed'>('hunt');
 
 // ── Map toggle ───────────────────────────────────────────
 const mapEl = ref<HTMLDivElement | null>(null);

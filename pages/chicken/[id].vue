@@ -30,7 +30,28 @@
         </div>
       </header>
 
-      <main class="flex flex-col gap-4">
+      <!-- Tab bar -->
+      <div class="flex gap-1 p-1 bg-bg border-2 border-border rounded-xl mb-4">
+        <button
+          type="button"
+          class="flex-1 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all border-0"
+          :class="activeTab === 'coop'
+            ? 'bg-accent text-white shadow-sm'
+            : 'bg-transparent text-text-muted hover:text-accent'"
+          @click="activeTab = 'coop'"
+        >Coop</button>
+        <button
+          type="button"
+          class="flex-1 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all border-0"
+          :class="activeTab === 'feed'
+            ? 'bg-accent text-white shadow-sm'
+            : 'bg-transparent text-text-muted hover:text-accent'"
+          @click="activeTab = 'feed'"
+        >Feed</button>
+      </div>
+
+      <!-- Coop tab content -->
+      <main v-show="activeTab === 'coop'" class="flex flex-col gap-4">
         <!-- ══════════════════════════════════════════════════ -->
         <!-- 1. Budget Section                                  -->
         <!-- ══════════════════════════════════════════════════ -->
@@ -368,9 +389,14 @@
         </section>
       </main>
 
-      <footer class="text-center py-5 text-[13px] text-text-muted border-t border-border mt-6">
+      <footer v-show="activeTab === 'coop'" class="text-center py-5 text-[13px] text-text-muted border-t border-border mt-6">
         <p class="m-0">🐔 Stay hidden. Stay spending. Stay clucking.</p>
       </footer>
+
+      <!-- Feed tab content -->
+      <div v-show="activeTab === 'feed'">
+        <CheckInFeed :check-ins="checkIns" :bars="bars" :teams="teams" :arrivals="arrivals" />
+      </div>
     </template>
 
     <!-- Delete hint confirmation -->
@@ -426,7 +452,7 @@ const huntId = route.params.id as string;
 // ── Composable ──────────────────────────────────────────
 const {
   pageLoading, error,
-  hunt, hints, expenses, arrivals,
+  hunt, hints, expenses, arrivals, bars, checkIns, teams,
   newHint, hintUploading, arrivalUploading,
   isCreator,
   budgetTotal, budgetSpent, budgetRemaining, budgetPercent,
@@ -435,6 +461,9 @@ const {
   formatTime,
   startPolling, stopPolling,
 } = useChicken(huntId);
+
+// ── Tabs ─────────────────────────────────────────────────
+const activeTab = ref<'coop' | 'feed'>('coop');
 
 // ── Section toggles ─────────────────────────────────────
 const budgetOpen = ref(true);

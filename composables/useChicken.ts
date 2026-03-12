@@ -3,9 +3,9 @@
  * Wraps the shared hunt data (hunt, hints, participants, teams) and adds
  * chicken-specific state: expenses, arrivals, budget tracking.
  */
-import type { Hunt, Hint, Participant, Team, HuntExpense, HuntArrival } from "~/types";
+import type { Hunt, Hint, Participant, Team, HuntExpense, HuntArrival, HuntBar, HuntCheckIn } from "~/types";
 
-const POLL_INTERVAL = 30_000;
+const POLL_INTERVAL = 10_000;
 
 export function useChicken(huntId: string) {
   const auth = useAuth();
@@ -20,6 +20,8 @@ export function useChicken(huntId: string) {
   const teams = ref<Team[]>([]);
   const expenses = ref<HuntExpense[]>([]);
   const arrivals = ref<HuntArrival[]>([]);
+  const bars = ref<HuntBar[]>([]);
+  const checkIns = ref<HuntCheckIn[]>([]);
 
   // UI state
   const showHintInput = ref(false);
@@ -64,6 +66,8 @@ export function useChicken(huntId: string) {
       teams.value = res.teams || [];
       expenses.value = res.expenses || [];
       arrivals.value = res.arrivals || [];
+      bars.value = res.bars || [];
+      checkIns.value = res.checkIns || [];
       pageLoading.value = false;
     } catch (e: any) {
       error.value = e?.data?.message || e?.message || "Failed to load hunt";
@@ -208,6 +212,10 @@ export function useChicken(huntId: string) {
       expenses.value = res.expenses || [];
       arrivals.value = res.arrivals || [];
 
+      // Merge bars & check-ins
+      bars.value = res.bars || [];
+      checkIns.value = res.checkIns || [];
+
       // Update hunt (budget might have changed)
       if (res.hunt) {
         hunt.value = res.hunt;
@@ -250,6 +258,8 @@ export function useChicken(huntId: string) {
     teams,
     expenses,
     arrivals,
+    bars,
+    checkIns,
     showHintInput,
     newHint,
     hintUploading,
