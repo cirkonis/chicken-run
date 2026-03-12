@@ -92,32 +92,40 @@
 
             <!-- Who's with the chickens (arrivals) -->
             <div class="mt-3 px-4 py-3 bg-white/60 border-2 border-chicken-yellow/40 rounded-xl">
-              <div class="text-xs font-semibold uppercase tracking-wide text-text-muted mb-2">Who's with the chickens</div>
-              <div v-if="arrivals.length > 0" class="flex flex-col gap-1.5">
-                <div
-                  v-for="(a, idx) in arrivals"
-                  :key="a.id"
-                  class="flex flex-col gap-1.5"
-                >
-                  <div class="flex items-center gap-2 text-sm">
-                    <span class="w-6 h-6 rounded-full bg-accent/10 text-accent font-bold text-[10px] flex items-center justify-center">
-                      {{ idx + 1 }}{{ idx === 0 ? 'st' : idx === 1 ? 'nd' : idx === 2 ? 'rd' : 'th' }}
-                    </span>
-                    <span class="font-semibold">{{ a.teamName }}</span>
-                    <span class="text-[11px] text-text-muted ml-auto">{{ formatArrivalTime(a.arrivedAt) }}</span>
-                  </div>
-                  <p v-if="a.note" class="text-sm text-text-muted m-0 pl-8">{{ a.note }}</p>
-                  <img
-                    v-if="a.imageUrl"
-                    :src="a.imageUrl"
-                    alt="Arrival photo"
-                    class="max-h-48 rounded-lg object-cover cursor-pointer border border-chicken-yellow/30"
-                    loading="lazy"
-                    @click="fullImageUrl = a.imageUrl"
-                  />
-                </div>
+              <div class="flex justify-between items-center">
+                <div class="text-xs font-semibold uppercase tracking-wide text-text-muted">Who's with the chickens</div>
+                <button
+                  class="px-2.5 py-1 border-2 border-chicken-yellow/40 rounded-lg bg-white/60 text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
+                  @click="arrivalsOpen = !arrivalsOpen"
+                >{{ arrivalsOpen ? 'Hide this' : 'Show this' }}</button>
               </div>
-              <p v-else class="text-[13px] text-text-muted italic m-0">No teams have found the chickens yet.</p>
+              <div v-show="arrivalsOpen" class="mt-2">
+                <div v-if="arrivals.length > 0" class="flex flex-col gap-1.5">
+                  <div
+                    v-for="(a, idx) in arrivals"
+                    :key="a.id"
+                    class="flex flex-col gap-1.5"
+                  >
+                    <div class="flex items-center gap-2 text-sm">
+                      <span class="w-6 h-6 rounded-full bg-accent/10 text-accent font-bold text-[10px] flex items-center justify-center">
+                        {{ idx + 1 }}{{ idx === 0 ? 'st' : idx === 1 ? 'nd' : idx === 2 ? 'rd' : 'th' }}
+                      </span>
+                      <span class="font-semibold">{{ a.teamName }}</span>
+                      <span class="text-[11px] text-text-muted ml-auto">{{ formatArrivalTime(a.arrivedAt) }}</span>
+                    </div>
+                    <p v-if="a.note" class="text-sm text-text-muted m-0 pl-8">{{ a.note }}</p>
+                    <img
+                      v-if="a.imageUrl"
+                      :src="a.imageUrl"
+                      alt="Arrival photo"
+                      class="max-h-48 rounded-lg object-cover cursor-pointer border border-chicken-yellow/30"
+                      loading="lazy"
+                      @click="fullImageUrl = a.imageUrl"
+                    />
+                  </div>
+                </div>
+                <p v-else class="text-[13px] text-text-muted italic m-0">No teams have found the chickens yet.</p>
+              </div>
             </div>
           </div>
         </section>
@@ -315,6 +323,7 @@ setOnMarkersChanged(() => paintMarkers(filteredBars.value));
 // ── Map toggle ───────────────────────────────────────────
 const mapEl = ref<HTMLDivElement | null>(null);
 const cluckingOpen = ref(true);
+const arrivalsOpen = ref(true);
 const mapOpen = ref(true);
 const barsOpen = ref(true);
 
