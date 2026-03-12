@@ -87,24 +87,44 @@
               class="px-3 py-1.5 border-2 border-chicken-yellow/40 rounded-lg bg-white/60 text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
               :class="cluckingOpen ? 'border-accent text-accent' : 'text-text-muted'"
               @click="cluckingOpen = !cluckingOpen"
-            >{{ cluckingOpen ? 'Hide' : 'Show' }}</button>
+            >{{ cluckingOpen ? 'Hide' : 'Show' }}<span v-if="hasUnseenCluckingInfo" class="inline-block w-2 h-2 rounded-full bg-red ml-1 animate-pulse align-middle"></span></button>
           </div>
 
           <div v-show="cluckingOpen">
             <!-- Money left (only if budget is set) -->
-            <div v-if="budgetTotal != null" class="flex items-center gap-3 px-4 py-3 bg-white/60 border-2 border-chicken-yellow/40 rounded-xl mb-3">
-              <div class="flex-1">
-                <div class="text-xs font-semibold uppercase tracking-wide text-text-muted mb-0.5">Money left</div>
-                <div class="text-2xl font-bold text-accent-dark">
-                  {{ budgetRemaining }}
-                  <span class="text-sm font-normal text-text-muted">of {{ budgetTotal }}</span>
+            <div v-if="budgetTotal != null" class="px-4 py-3 bg-white/60 border-2 border-chicken-yellow/40 rounded-xl mb-3">
+              <div class="flex items-center gap-3">
+                <div class="flex-1">
+                  <div class="text-xs font-semibold uppercase tracking-wide text-text-muted mb-0.5">Money left</div>
+                  <div class="text-2xl font-bold text-accent-dark">
+                    {{ budgetRemaining }}
+                    <span class="text-sm font-normal text-text-muted">of {{ budgetTotal }}</span>
+                  </div>
+                </div>
+                <div
+                  class="w-16 h-16 rounded-full border-4 flex items-center justify-center"
+                  :class="budgetPercent > 25 ? 'border-chicken-yellow' : 'border-red'"
+                >
+                  <span class="text-sm font-bold" :class="budgetPercent > 25 ? 'text-accent-dark' : 'text-red'">{{ budgetPercent }}%</span>
                 </div>
               </div>
-              <div
-                class="w-16 h-16 rounded-full border-4 flex items-center justify-center"
-                :class="budgetPercent > 25 ? 'border-chicken-yellow' : 'border-red'"
-              >
-                <span class="text-sm font-bold" :class="budgetPercent > 25 ? 'text-accent-dark' : 'text-red'">{{ budgetPercent }}%</span>
+              <!-- Expandable expense details -->
+              <div v-if="expenses.length > 0" class="mt-2 pt-2 border-t border-chicken-yellow/30">
+                <button
+                  type="button"
+                  class="text-[11px] font-semibold text-text-muted cursor-pointer bg-transparent border-0 p-0 hover:text-accent transition-colors"
+                  @click="expensesOpen = !expensesOpen"
+                >{{ expensesOpen ? 'Hide' : 'Show' }} spending details ({{ expenses.length }})</button>
+                <ul v-show="expensesOpen" class="list-none p-0 m-0 mt-1.5 flex flex-col gap-1">
+                  <li
+                    v-for="e in expenses"
+                    :key="e.id"
+                    class="flex items-center gap-2 px-2.5 py-1.5 bg-white/60 rounded-lg text-xs"
+                  >
+                    <span class="font-bold text-accent-dark min-w-[40px]">{{ e.amount }}</span>
+                    <span class="flex-1 text-text-muted truncate">{{ e.note || '—' }}</span>
+                  </li>
+                </ul>
               </div>
             </div>
 
@@ -112,6 +132,8 @@
             <HintBox
               :hints="hints"
               :show-when-empty="bars.length > 0"
+              v-model:collapsed="hintsCollapsed"
+              :notification="hasUnseenHints"
             />
 
             <!-- Who's with the chickens (arrivals) -->
@@ -121,7 +143,7 @@
                 <button
                   class="px-2.5 py-1 border-2 border-chicken-yellow/40 rounded-lg bg-white/60 text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
                   @click="arrivalsOpen = !arrivalsOpen"
-                >{{ arrivalsOpen ? 'Hide this' : 'Show this' }}</button>
+                >{{ arrivalsOpen ? 'Hide this' : 'Show this' }}<span v-if="hasUnseenArrivals" class="inline-block w-2 h-2 rounded-full bg-red ml-1 animate-pulse align-middle"></span></button>
               </div>
               <div v-show="arrivalsOpen" class="mt-2">
                 <div v-if="arrivals.length > 0" class="flex flex-col gap-1.5">
@@ -135,7 +157,6 @@
                         {{ idx + 1 }}{{ idx === 0 ? 'st' : idx === 1 ? 'nd' : idx === 2 ? 'rd' : 'th' }}
                       </span>
                       <span class="font-semibold">{{ a.teamName }}</span>
-                      <span class="text-[11px] text-text-muted ml-auto">{{ formatArrivalTime(a.arrivedAt) }}</span>
                     </div>
                     <p v-if="a.note" class="text-sm text-text-muted m-0 pl-8">{{ a.note }}</p>
                     <img
@@ -330,7 +351,7 @@ const huntId = route.params.id as string;
 // ── Composables ──────────────────────────────────────────
 const {
   pageLoading, error,
-  hunt, bars, hints, participants, teams, arrivals, checkIns,
+  hunt, bars, hints, participants, teams, expenses, arrivals, checkIns,
   filter, statusFilter,
   isCreator, myTeam, myTeamHunterCount, totalHunterCount, statusCounts, filteredBars,
   budgetTotal, budgetSpent, budgetRemaining, budgetPercent,
@@ -369,9 +390,66 @@ watch(() => checkIns.value.length, (count) => {
 // ── Map toggle ───────────────────────────────────────────
 const mapEl = ref<HTMLDivElement | null>(null);
 const cluckingOpen = ref(true);
-const arrivalsOpen = ref(true);
+const expensesOpen = ref(false);
+const hintsCollapsed = ref(true);
+const arrivalsOpen = ref(false);
 const mapOpen = ref(true);
 const barsOpen = ref(true);
+
+// ── Clucking Info notification dots ──────────────────────
+const seenHintCount = ref(0);
+const seenArrivalCount = ref(0);
+const seenBudgetSpent = ref(0);
+
+// Outer dot: Clucking Info is collapsed and something inside changed
+const hasUnseenCluckingInfo = computed(() => {
+  if (cluckingOpen.value) return false;
+  return hints.value.length > seenHintCount.value
+    || arrivals.value.length > seenArrivalCount.value
+    || budgetSpent.value !== seenBudgetSpent.value;
+});
+
+// Inner dot: hints collapsed and new hints came in
+const hasUnseenHints = computed(() => {
+  if (!hintsCollapsed.value) return false;
+  return hints.value.length > seenHintCount.value;
+});
+
+// Inner dot: arrivals sub-section is collapsed and new arrivals came in
+const hasUnseenArrivals = computed(() => {
+  if (arrivalsOpen.value) return false;
+  return arrivals.value.length > seenArrivalCount.value;
+});
+
+// Mark budget seen when Clucking Info opens (budget is immediately visible)
+watch(cluckingOpen, (open) => {
+  if (open) {
+    seenBudgetSpent.value = budgetSpent.value;
+  }
+});
+
+// Mark hints seen when hints section opens
+watch(hintsCollapsed, (collapsed) => {
+  if (!collapsed) seenHintCount.value = hints.value.length;
+});
+
+// Mark arrivals seen when arrivals sub-section opens
+watch(arrivalsOpen, (open) => {
+  if (open) seenArrivalCount.value = arrivals.value.length;
+});
+
+// Auto-update seen counts when data changes while sections are visible
+watch(() => hints.value.length, (count) => {
+  if (cluckingOpen.value && !hintsCollapsed.value) seenHintCount.value = count;
+});
+
+watch(() => arrivals.value.length, (count) => {
+  if (cluckingOpen.value && arrivalsOpen.value) seenArrivalCount.value = count;
+});
+
+watch(budgetSpent, (spent) => {
+  if (cluckingOpen.value) seenBudgetSpent.value = spent;
+});
 
 watch(mapOpen, (open) => {
   if (open) nextTick(() => invalidateSize());
@@ -511,18 +589,6 @@ async function doRenameTeam() {
   }
 }
 
-// ── Helpers ──────────────────────────────────────────────
-function formatArrivalTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
-}
-
 // ── Navigation ───────────────────────────────────────────
 function goBack() {
   if (auth.isHost.value) {
@@ -543,6 +609,9 @@ onMounted(async () => {
 
   await loadHunt();
   seenCheckInCount.value = checkIns.value.length;
+  seenHintCount.value = hints.value.length;
+  seenArrivalCount.value = arrivals.value.length;
+  seenBudgetSpent.value = budgetSpent.value;
 
   // Init map once the template is rendered (pageLoading is now false)
   await nextTick();
