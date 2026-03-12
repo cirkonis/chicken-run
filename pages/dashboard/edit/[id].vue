@@ -143,6 +143,7 @@
             >{{ mapOpen ? 'Hide map' : 'Show map' }}</button>
           </div>
           <div v-show="mapOpen" class="flex flex-col gap-2.5">
+              <!-- Editing controls (only when preparing) -->
               <template v-if="isPreparing">
                 <div class="grid grid-cols-3 gap-2">
                   <label class="flex flex-col gap-1">
@@ -158,40 +159,35 @@
                     <input v-model="radius" inputmode="numeric" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" />
                   </label>
                 </div>
-                <!-- Location picker map -->
-                <div>
-                  <div class="flex items-center gap-2 mb-1.5">
-                    <button
-                      type="button"
-                      class="px-3 py-1.5 border-2 rounded-lg text-xs font-semibold cursor-pointer transition-all"
-                      :class="pickingMode
-                        ? 'border-accent bg-accent text-white'
-                        : 'border-border bg-bg text-text-muted hover:border-accent hover:text-accent'"
-                      @click="togglePickingMode"
-                    >
-                      {{ pickingMode ? '📍 Picking...' : '📍 Set new location' }}
-                    </button>
-                    <button
-                      v-if="locationChanged"
-                      type="button"
-                      class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
-                      @click="resetLocation"
-                    >
-                      ↩ Put it back
-                    </button>
-                    <span v-if="pickingMode" class="text-xs text-accent italic animate-pulse">Click the map to move the pin</span>
-                  </div>
-                  <div class="rounded-xl overflow-hidden border-2 transition-colors relative z-0" :class="pickingMode ? 'border-accent' : 'border-border'">
-                    <div ref="pickerMapEl" class="h-[280px] w-full"></div>
-                  </div>
+                <div class="flex items-center gap-2 mb-1.5">
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 border-2 rounded-lg text-xs font-semibold cursor-pointer transition-all"
+                    :class="pickingMode
+                      ? 'border-accent bg-accent text-white'
+                      : 'border-border bg-bg text-text-muted hover:border-accent hover:text-accent'"
+                    @click="togglePickingMode"
+                  >
+                    {{ pickingMode ? '📍 Picking...' : '📍 Set new location' }}
+                  </button>
+                  <button
+                    v-if="locationChanged"
+                    type="button"
+                    class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
+                    @click="resetLocation"
+                  >
+                    ↩ Put it back
+                  </button>
+                  <span v-if="pickingMode" class="text-xs text-accent italic animate-pulse">Click the map to move the pin</span>
                 </div>
               </template>
-              <template v-else>
-                <p class="text-xs text-text-muted m-0 mb-2">Location is locked while the hunt is running.</p>
-                <div class="rounded-xl overflow-hidden border-2 border-border relative z-0">
-                  <div ref="pickerMapEl" class="h-[280px] w-full"></div>
-                </div>
-              </template>
+              <!-- Locked notice (when not preparing) -->
+              <p v-else class="text-xs text-text-muted m-0">Location is locked while the hunt is running.</p>
+
+              <!-- Single map container — always rendered so Leaflet keeps its DOM -->
+              <div class="rounded-xl overflow-hidden border-2 transition-colors relative z-0" :class="pickingMode ? 'border-accent' : 'border-border'">
+                <div ref="pickerMapEl" class="h-[280px] w-full"></div>
+              </div>
           </div>
         </section>
 
@@ -294,10 +290,7 @@
                   >{{ bar.name }}</div>
                   <div class="text-[13px] text-text-muted mt-0.5">{{ bar.address }}</div>
                   <div class="mt-1 text-xs text-text-muted">
-                    <span v-if="bar.rating">{{ bar.rating }}</span>
-                    <span v-if="bar.ratingsTotal" class="opacity-70">({{ bar.ratingsTotal }})</span>
-                    <span v-if="bar.priceLevel">{{ '$'.repeat(bar.priceLevel) }}</span>
-                    <a :href="bar.mapsUrl" target="_blank" rel="noreferrer" class="ml-1.5 no-underline text-accent font-semibold hover:underline" @click.stop>Maps ↗</a>
+                    <a :href="bar.mapsUrl" target="_blank" rel="noreferrer" class="no-underline text-accent font-semibold hover:underline" @click.stop>Maps ↗</a>
                   </div>
                 </div>
                 <div v-if="isPreparing" class="flex items-center">
@@ -355,12 +348,6 @@
               @click="showEndModal = true"
             >End Hunt</button>
             <button
-              v-if="huntStatus === 'completed'"
-              type="button"
-              class="px-5 py-2.5 border-2 border-green/40 rounded-xl bg-surface text-green font-semibold text-sm cursor-pointer transition-all hover:bg-green hover:text-white hover:border-green"
-              @click="doReactivate"
-            >Reactivate Hunt</button>
-            <button
               v-if="huntStatus === 'preparing'"
               type="button"
               class="px-5 py-2.5 border-2 border-red rounded-xl bg-surface text-red font-semibold text-sm cursor-pointer transition-all hover:bg-red hover:text-white"
@@ -384,7 +371,7 @@
       <ConfirmModal
         v-model="showEndModal"
         title="End this hunt?"
-        message="Players won't be able to join anymore, but all data will be preserved. You can reactivate the hunt later."
+        message="The hunt will be marked as completed. All data will be preserved but the hunt cannot be restarted."
         confirm-label="End Hunt"
         :loading="dangerLoading"
         @confirm="doEndHunt"
@@ -585,19 +572,6 @@ async function doEndHunt() {
     showEndModal.value = false;
   } catch (e: any) {
     error.value = e?.data?.message || e?.message || "Failed to end hunt";
-  } finally {
-    dangerLoading.value = false;
-  }
-}
-
-async function doReactivate() {
-  dangerLoading.value = true;
-  try {
-    await auth.authFetch(`/api/hunts/${huntId}/status`, { method: "PATCH", body: { status: "preparing" } });
-    huntStatus.value = "preparing";
-    startedAt.value = null;
-  } catch (e: any) {
-    error.value = e?.data?.message || e?.message || "Failed to reactivate hunt";
   } finally {
     dangerLoading.value = false;
   }

@@ -61,7 +61,7 @@ withDefaults(
       checked: "Check In",
       checkedActive: "Checked In",
       not_checking: "Maybe Skip",
-      notCheckingActive: "Skipping",
+      notCheckingActive: "Unskip",
     }),
   }
 );
