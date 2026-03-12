@@ -1,5 +1,6 @@
 import { defineEventHandler, getRouterParam, createError } from "h3";
 import { getUserClient } from "../../utils/supabase";
+import { getSignedImageUrls } from "../../utils/storage";
 
 // GET /api/hunts/:huntId — get a single hunt with bars, hints, participants, teams
 export default defineEventHandler(async (event) => {
@@ -34,7 +35,7 @@ export default defineEventHandler(async (event) => {
       .order("name"),
     supabase
       .from("hints")
-      .select("id, text, author_id, created_at")
+      .select("id, text, author_id, created_at, image_path")
       .eq("hunt_id", huntId)
       .order("created_at", { ascending: false }),
     supabase
@@ -63,14 +64,35 @@ export default defineEventHandler(async (event) => {
       .order("arrived_at"),
   ]);
 
+  // Map hints and arrivals, collect all image paths for batch signed URL generation
+  const mappedHints = (hintsResult.data || []).map(mapHint);
+  const mappedArrivals = (arrivalsResult.data || []).map(mapArrival);
+
+  const allImagePaths = [
+    ...mappedHints.map((h) => h.imagePath),
+    ...mappedArrivals.map((a) => a.imagePath),
+  ].filter((p): p is string => !!p);
+
+  const signedUrls = await getSignedImageUrls(allImagePaths);
+
+  const hints = mappedHints.map(({ imagePath, ...hint }) => ({
+    ...hint,
+    imageUrl: imagePath ? signedUrls.get(imagePath) || null : null,
+  }));
+
+  const arrivals = mappedArrivals.map(({ imagePath, ...arrival }) => ({
+    ...arrival,
+    imageUrl: imagePath ? signedUrls.get(imagePath) || null : null,
+  }));
+
   return {
     hunt: mapHunt(hunt),
     bars: (barsResult.data || []).map(mapBar),
-    hints: (hintsResult.data || []).map(mapHint),
+    hints,
     participants: (participantsResult.data || []).map(mapParticipant),
     teams: (teamsResult.data || []).map(mapTeam),
     chickens: (chickensResult.data || []).map(mapChicken),
     expenses: (expensesResult.data || []).map(mapExpense),
-    arrivals: (arrivalsResult.data || []).map(mapArrival),
+    arrivals,
   };
 });

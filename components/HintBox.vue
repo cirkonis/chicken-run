@@ -9,21 +9,42 @@
         >{{ collapsed ? "Show hints" : "Hide hints" }}</button>
       </div>
       <template v-if="!collapsed">
-        <ul v-if="hints.length" class="mt-2 pl-5 text-sm">
+        <ul v-if="hints.length" class="list-none p-0 mt-2 text-sm flex flex-col gap-1.5">
           <li
             v-for="h in hints"
             :key="h.id"
-            class="mb-1 flex justify-between items-baseline gap-2"
+            class="flex flex-col gap-1.5 px-3 py-2 bg-white/60 rounded-lg"
           >
-            <span>{{ h.text }}</span>
-            <span class="text-[11px] text-text-muted opacity-70 whitespace-nowrap">
-              {{ h.authorName }} · {{ formatTime(h.createdAt) }}
-            </span>
+            <div class="flex justify-between items-baseline gap-2">
+              <span>{{ h.text }}</span>
+              <span class="text-[11px] text-text-muted opacity-70 whitespace-nowrap">
+                {{ h.authorName }} · {{ formatTime(h.createdAt) }}
+              </span>
+            </div>
+            <img
+              v-if="h.imageUrl"
+              :src="h.imageUrl"
+              alt="Hint photo"
+              class="max-h-48 rounded-lg object-cover cursor-pointer border border-chicken-yellow/30"
+              loading="lazy"
+              @click="fullImageUrl = h.imageUrl"
+            />
           </li>
         </ul>
         <p v-else class="mt-2 text-[13px] text-text-muted italic">No hints yet. The chickens are silent...</p>
       </template>
     </div>
+
+    <!-- Fullscreen image viewer -->
+    <Teleport to="body">
+      <div
+        v-if="fullImageUrl"
+        class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] cursor-pointer p-4"
+        @click="fullImageUrl = null"
+      >
+        <img :src="fullImageUrl" class="max-w-full max-h-full object-contain rounded-lg" />
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -36,6 +57,7 @@ defineProps<{
 }>();
 
 const collapsed = ref(false);
+const fullImageUrl = ref<string | null>(null);
 
 function formatTime(iso: string): string {
   try {

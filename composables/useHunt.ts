@@ -170,27 +170,43 @@ export function useHunt(huntId: string) {
     }
   }
 
-  async function addHint(textOverride?: string) {
+  const hintUploading = ref(false);
+
+  async function addHint(textOverride?: string, imageFile?: File | null) {
     const text = (textOverride ?? newHint.value).trim();
-    if (!text) return;
+    if (!text && !imageFile) return;
 
     newHint.value = "";
     showHintInput.value = false;
+    hintUploading.value = !!imageFile;
 
     try {
+      const formData = new FormData();
+      formData.append("text", text);
+
+      if (imageFile) {
+        const { compressImage } = useImageCompression();
+        const compressed = await compressImage(imageFile);
+        formData.append("image", compressed, "hint.jpg");
+      }
+
       const res = await auth.authFetch<any>(`/api/hunts/${huntId}/hints`, {
         method: "POST",
-        body: { text },
+        body: formData,
       });
+
       hints.value.unshift({
         id: res.hint.id,
         text: res.hint.text,
-        authorId: res.hint.author_id,
+        authorId: res.hint.authorId,
         authorName: auth.state.user?.displayName || "You",
-        createdAt: res.hint.created_at,
+        createdAt: res.hint.createdAt,
+        imageUrl: res.hint.imageUrl || null,
       });
     } catch (e: any) {
       error.value = e?.data?.message || e?.message || "Failed to add hint";
+    } finally {
+      hintUploading.value = false;
     }
   }
 
@@ -302,6 +318,7 @@ export function useHunt(huntId: string) {
     statusFilter,
     showHintInput,
     newHint,
+    hintUploading,
     showWelcomeModal,
 
     // Computed

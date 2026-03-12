@@ -96,6 +96,7 @@ export interface Hint {
   authorId: string;
   authorName: string;
   createdAt: string;
+  imageUrl?: string | null;
 }
 
 // ── Participant ──────────────────────────────────────────
@@ -141,4 +142,6 @@ export interface HuntArrival {
   teamId: string;
   teamName: string;
   arrivedAt: string;
+  note: string;
+  imageUrl?: string | null;
 }

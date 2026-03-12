@@ -57,13 +57,14 @@ export function mapBar(row: Record<string, any>): HuntBar {
   };
 }
 
-export function mapHint(row: Record<string, any>): Hint {
+export function mapHint(row: Record<string, any>): Hint & { imagePath?: string | null } {
   return {
     id: row.id,
     text: row.text,
     authorId: row.author_id,
     authorName: row.profiles?.display_name || "The Chickens 🐔",
     createdAt: row.created_at,
+    imagePath: row.image_path || null,
   };
 }
 
@@ -124,12 +125,14 @@ export function mapExpense(row: Record<string, any>): HuntExpense {
   };
 }
 
-export function mapArrival(row: Record<string, any>): HuntArrival {
+export function mapArrival(row: Record<string, any>): HuntArrival & { imagePath?: string | null } {
   return {
     id: row.id,
     huntId: row.hunt_id,
     teamId: row.team_id,
     teamName: row.hunt_teams?.name || "Unknown",
     arrivedAt: row.arrived_at,
+    note: row.note || "",
+    imagePath: row.image_path || null,
   };
 }

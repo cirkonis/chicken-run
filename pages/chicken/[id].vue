@@ -151,20 +151,46 @@
 
           <div v-show="hintsOpen">
             <!-- Hint input -->
-            <div class="flex gap-2 mb-3">
-              <input
-                v-model="newHint"
-                type="text"
-                placeholder="Drop a hint for the hunters..."
-                class="flex-1 px-3 py-2.5 border-2 border-border rounded-xl text-sm bg-bg focus:outline-none focus:border-accent"
-                @keyup.enter="addHint()"
-              />
-              <button
-                type="button"
-                class="px-4 py-2.5 border-0 rounded-xl bg-accent text-white font-semibold text-sm cursor-pointer transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed"
-                :disabled="!newHint.trim()"
-                @click="addHint()"
-              >Send</button>
+            <div class="flex flex-col gap-2 mb-3">
+              <div class="flex gap-2">
+                <input
+                  v-model="newHint"
+                  type="text"
+                  placeholder="Drop a hint for the hunters..."
+                  class="flex-1 px-3 py-2.5 border-2 border-border rounded-xl text-sm bg-bg focus:outline-none focus:border-accent"
+                  @keyup.enter="submitHint"
+                />
+                <label
+                  class="px-3 py-2.5 border-2 border-border rounded-xl bg-bg cursor-pointer transition-all hover:border-accent flex items-center"
+                  :class="selectedImage ? 'border-accent bg-accent/5' : ''"
+                  title="Attach photo"
+                >
+                  <span class="text-base leading-none">+img</span>
+                  <input
+                    ref="fileInput"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    class="hidden"
+                    @change="onFileSelected"
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="px-4 py-2.5 border-0 rounded-xl bg-accent text-white font-semibold text-sm cursor-pointer transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed"
+                  :disabled="(!newHint.trim() && !selectedImage) || hintUploading"
+                  @click="submitHint"
+                >{{ hintUploading ? 'Uploading...' : 'Send' }}</button>
+              </div>
+              <!-- Image preview -->
+              <div v-if="imagePreview" class="relative inline-block self-start">
+                <img :src="imagePreview" class="h-20 rounded-lg border-2 border-border object-cover" />
+                <button
+                  type="button"
+                  class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red text-white text-xs flex items-center justify-center cursor-pointer border-none"
+                  @click="clearImage"
+                >x</button>
+              </div>
             </div>
 
             <!-- Hints list -->
@@ -172,12 +198,22 @@
               <li
                 v-for="h in hints"
                 :key="h.id"
-                class="flex items-baseline gap-2 px-3 py-2 bg-[#fff8e1] border border-chicken-yellow/30 rounded-lg text-sm"
+                class="flex flex-col gap-1.5 px-3 py-2 bg-[#fff8e1] border border-chicken-yellow/30 rounded-lg text-sm"
               >
-                <span class="flex-1">{{ h.text }}</span>
-                <span class="text-[11px] text-text-muted opacity-70 whitespace-nowrap">
-                  {{ h.authorName }} · {{ formatTime(h.createdAt) }}
-                </span>
+                <div class="flex items-baseline gap-2">
+                  <span class="flex-1">{{ h.text }}</span>
+                  <span class="text-[11px] text-text-muted opacity-70 whitespace-nowrap">
+                    {{ h.authorName }} · {{ formatTime(h.createdAt) }}
+                  </span>
+                </div>
+                <img
+                  v-if="h.imageUrl"
+                  :src="h.imageUrl"
+                  alt="Hint photo"
+                  class="max-h-48 rounded-lg object-cover cursor-pointer border border-chicken-yellow/30"
+                  loading="lazy"
+                  @click="fullImageUrl = h.imageUrl"
+                />
               </li>
             </ul>
             <p v-else class="text-[13px] text-text-muted italic m-0">No hints yet. Time to give the hunters a clue!</p>
@@ -204,19 +240,30 @@
               <div
                 v-for="(a, idx) in arrivals"
                 :key="a.id"
-                class="flex items-center gap-2 px-3 py-2.5 bg-bg border-2 border-border rounded-xl"
+                class="flex flex-col gap-1.5 px-3 py-2.5 bg-bg border-2 border-border rounded-xl"
               >
-                <span class="w-7 h-7 rounded-full bg-accent/10 text-accent font-bold text-xs flex items-center justify-center">
-                  {{ ordinal(idx + 1) }}
-                </span>
-                <span class="flex-1 font-semibold text-sm">{{ a.teamName }}</span>
-                <span class="text-[11px] text-text-muted">{{ formatTime(a.arrivedAt) }}</span>
-                <button
-                  type="button"
-                  class="px-1.5 py-0.5 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red"
-                  title="Undo"
-                  @click="deleteArrival(a.id)"
-                >✕</button>
+                <div class="flex items-center gap-2">
+                  <span class="w-7 h-7 rounded-full bg-accent/10 text-accent font-bold text-xs flex items-center justify-center">
+                    {{ ordinal(idx + 1) }}
+                  </span>
+                  <span class="flex-1 font-semibold text-sm">{{ a.teamName }}</span>
+                  <span class="text-[11px] text-text-muted">{{ formatTime(a.arrivedAt) }}</span>
+                  <button
+                    type="button"
+                    class="px-1.5 py-0.5 border-none bg-transparent text-text-muted text-xs cursor-pointer hover:text-red"
+                    title="Undo"
+                    @click="deleteArrival(a.id)"
+                  >✕</button>
+                </div>
+                <p v-if="a.note" class="text-sm text-text-muted m-0 pl-9">{{ a.note }}</p>
+                <img
+                  v-if="a.imageUrl"
+                  :src="a.imageUrl"
+                  alt="Arrival photo"
+                  class="max-h-48 rounded-lg object-cover cursor-pointer border border-border"
+                  loading="lazy"
+                  @click="fullImageUrl = a.imageUrl"
+                />
               </div>
             </div>
             <p v-else class="text-[13px] text-text-muted italic m-0 mb-3">No teams have found you yet. Stay hidden!</p>
@@ -232,23 +279,78 @@
                 + Team Arrived!
               </button>
 
-              <!-- Team picker -->
-              <div v-else class="flex flex-col gap-2 p-3 bg-bg border-2 border-border rounded-xl">
+              <!-- Team picker (step 1: choose team) -->
+              <div v-else-if="!selectedArrivalTeamId" class="flex flex-col gap-2 p-3 bg-bg border-2 border-border rounded-xl">
                 <div class="text-xs font-semibold text-text-muted mb-1">Which team found you?</div>
                 <button
                   v-for="t in unarrivedTeams"
                   :key="t.id"
                   type="button"
                   class="px-4 py-2.5 border-2 border-border rounded-xl bg-surface text-sm font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent text-left"
-                  @click="recordArrival(t.id)"
+                  @click="selectedArrivalTeamId = t.id"
                 >
                   {{ t.name }}
                 </button>
                 <button
                   type="button"
                   class="self-start px-3 py-1.5 border-2 border-border rounded-lg bg-surface text-xs font-semibold text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
-                  @click="showArrivalPicker = false"
+                  @click="cancelArrivalPicker"
                 >Cancel</button>
+              </div>
+
+              <!-- Team picker (step 2: optional photo + confirm) -->
+              <div v-else class="flex flex-col gap-2 p-3 bg-bg border-2 border-border rounded-xl">
+                <div class="text-xs font-semibold text-text-muted mb-1">
+                  Record <strong>{{ selectedArrivalTeamName }}</strong> arriving
+                </div>
+                <!-- Photo attachment -->
+                <div class="flex items-center gap-2">
+                  <label
+                    class="flex-1 py-2.5 border-2 border-dashed border-border rounded-xl bg-surface text-center text-sm cursor-pointer transition-all hover:border-accent"
+                    :class="arrivalImagePreview ? 'border-accent bg-accent/5' : ''"
+                  >
+                    <span>{{ arrivalImagePreview ? 'Change photo' : '+ Add photo (optional)' }}</span>
+                    <input
+                      ref="arrivalFileInput"
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      class="hidden"
+                      @change="onArrivalFileSelected"
+                    />
+                  </label>
+                </div>
+                <!-- Image preview -->
+                <div v-if="arrivalImagePreview" class="relative inline-block self-start">
+                  <img :src="arrivalImagePreview" class="h-20 rounded-lg border-2 border-border object-cover" />
+                  <button
+                    type="button"
+                    class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red text-white text-xs flex items-center justify-center cursor-pointer border-none"
+                    @click="clearArrivalImage"
+                  >x</button>
+                </div>
+                <!-- Note -->
+                <input
+                  v-model="arrivalNote"
+                  type="text"
+                  placeholder="Add a note (optional)"
+                  class="w-full px-3 py-2 border-2 border-border rounded-lg text-sm bg-bg focus:outline-none focus:border-accent"
+                  maxlength="200"
+                />
+                <!-- Actions -->
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="flex-1 px-3 py-2 border-2 border-border rounded-lg bg-surface text-text-muted text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
+                    @click="cancelArrivalPicker"
+                  >Cancel</button>
+                  <button
+                    type="button"
+                    class="flex-1 px-3 py-2 border-0 rounded-lg bg-accent text-white text-xs font-semibold cursor-pointer transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed"
+                    :disabled="arrivalUploading"
+                    @click="recordArrival"
+                  >{{ arrivalUploading ? 'Uploading...' : 'Confirm Arrival' }}</button>
+                </div>
               </div>
             </div>
             <p v-else-if="arrivals.length > 0" class="text-[13px] text-green font-semibold m-0">All teams have arrived!</p>
@@ -271,6 +373,17 @@
         {{ error }}
       </div>
     </Teleport>
+
+    <!-- Fullscreen image viewer -->
+    <Teleport to="body">
+      <div
+        v-if="fullImageUrl"
+        class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] cursor-pointer p-4"
+        @click="fullImageUrl = null"
+      >
+        <img :src="fullImageUrl" class="max-w-full max-h-full object-contain rounded-lg" />
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -284,7 +397,7 @@ const huntId = route.params.id as string;
 const {
   pageLoading, error,
   hunt, hints, expenses, arrivals,
-  newHint,
+  newHint, hintUploading, arrivalUploading,
   isCreator,
   budgetTotal, budgetSpent, budgetRemaining, budgetPercent,
   unarrivedTeams,
@@ -297,6 +410,34 @@ const {
 const budgetOpen = ref(true);
 const hintsOpen = ref(true);
 const arrivalsOpen = ref(true);
+
+// ── Hint image handling ─────────────────────────────────
+const fileInput = ref<HTMLInputElement | null>(null);
+const selectedImage = ref<File | null>(null);
+const imagePreview = ref<string | null>(null);
+const fullImageUrl = ref<string | null>(null);
+
+function onFileSelected(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  selectedImage.value = file;
+  imagePreview.value = URL.createObjectURL(file);
+}
+
+function clearImage() {
+  selectedImage.value = null;
+  if (imagePreview.value) {
+    URL.revokeObjectURL(imagePreview.value);
+    imagePreview.value = null;
+  }
+  if (fileInput.value) fileInput.value.value = "";
+}
+
+async function submitHint() {
+  await addHint(undefined, selectedImage.value);
+  clearImage();
+}
 
 // ── Budget spending ─────────────────────────────────────
 const showSpendForm = ref(false);
@@ -319,10 +460,45 @@ async function submitSpend() {
 
 // ── Arrivals ────────────────────────────────────────────
 const showArrivalPicker = ref(false);
+const selectedArrivalTeamId = ref<string | null>(null);
+const arrivalFileInput = ref<HTMLInputElement | null>(null);
+const selectedArrivalImage = ref<File | null>(null);
+const arrivalImagePreview = ref<string | null>(null);
+const arrivalNote = ref("");
 
-async function recordArrival(teamId: string) {
-  await addArrival(teamId);
+const selectedArrivalTeamName = computed(() => {
+  if (!selectedArrivalTeamId.value) return "";
+  return unarrivedTeams.value.find((t) => t.id === selectedArrivalTeamId.value)?.name || "";
+});
+
+function onArrivalFileSelected(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  selectedArrivalImage.value = file;
+  arrivalImagePreview.value = URL.createObjectURL(file);
+}
+
+function clearArrivalImage() {
+  selectedArrivalImage.value = null;
+  if (arrivalImagePreview.value) {
+    URL.revokeObjectURL(arrivalImagePreview.value);
+    arrivalImagePreview.value = null;
+  }
+  if (arrivalFileInput.value) arrivalFileInput.value.value = "";
+}
+
+function cancelArrivalPicker() {
   showArrivalPicker.value = false;
+  selectedArrivalTeamId.value = null;
+  arrivalNote.value = "";
+  clearArrivalImage();
+}
+
+async function recordArrival() {
+  if (!selectedArrivalTeamId.value) return;
+  await addArrival(selectedArrivalTeamId.value, arrivalNote.value.trim(), selectedArrivalImage.value);
+  cancelArrivalPicker();
 }
 
 // ── Helpers ─────────────────────────────────────────────

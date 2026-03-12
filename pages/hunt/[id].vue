@@ -97,13 +97,24 @@
                 <div
                   v-for="(a, idx) in arrivals"
                   :key="a.id"
-                  class="flex items-center gap-2 text-sm"
+                  class="flex flex-col gap-1.5"
                 >
-                  <span class="w-6 h-6 rounded-full bg-accent/10 text-accent font-bold text-[10px] flex items-center justify-center">
-                    {{ idx + 1 }}{{ idx === 0 ? 'st' : idx === 1 ? 'nd' : idx === 2 ? 'rd' : 'th' }}
-                  </span>
-                  <span class="font-semibold">{{ a.teamName }}</span>
-                  <span class="text-[11px] text-text-muted ml-auto">{{ formatArrivalTime(a.arrivedAt) }}</span>
+                  <div class="flex items-center gap-2 text-sm">
+                    <span class="w-6 h-6 rounded-full bg-accent/10 text-accent font-bold text-[10px] flex items-center justify-center">
+                      {{ idx + 1 }}{{ idx === 0 ? 'st' : idx === 1 ? 'nd' : idx === 2 ? 'rd' : 'th' }}
+                    </span>
+                    <span class="font-semibold">{{ a.teamName }}</span>
+                    <span class="text-[11px] text-text-muted ml-auto">{{ formatArrivalTime(a.arrivedAt) }}</span>
+                  </div>
+                  <p v-if="a.note" class="text-sm text-text-muted m-0 pl-8">{{ a.note }}</p>
+                  <img
+                    v-if="a.imageUrl"
+                    :src="a.imageUrl"
+                    alt="Arrival photo"
+                    class="max-h-48 rounded-lg object-cover cursor-pointer border border-chicken-yellow/30"
+                    loading="lazy"
+                    @click="fullImageUrl = a.imageUrl"
+                  />
                 </div>
               </div>
               <p v-else class="text-[13px] text-text-muted italic m-0">No teams have found the chickens yet.</p>
@@ -245,6 +256,17 @@
         :loading="renamingLoading"
         @confirm="doRenameTeam"
       />
+
+      <!-- Fullscreen image viewer -->
+      <Teleport to="body">
+        <div
+          v-if="fullImageUrl"
+          class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] cursor-pointer p-4"
+          @click="fullImageUrl = null"
+        >
+          <img :src="fullImageUrl" class="max-w-full max-h-full object-contain rounded-lg" />
+        </div>
+      </Teleport>
     </template>
 
   </div>
@@ -336,6 +358,9 @@ function scrollToBar(barId: string) {
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 }
+
+// ── Image viewer ─────────────────────────────────────────
+const fullImageUrl = ref<string | null>(null);
 
 // ── User location ────────────────────────────────────────
 const locationActive = ref(false);
