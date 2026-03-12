@@ -26,8 +26,8 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Fetch bars, hints, participants, teams, chickens, expenses, arrivals in parallel
-  const [barsResult, hintsResult, participantsResult, teamsResult, chickensResult, expensesResult, arrivalsResult] = await Promise.all([
+  // Fetch bars, hints, participants, teams, chickens, expenses, arrivals, check-ins in parallel
+  const [barsResult, hintsResult, participantsResult, teamsResult, chickensResult, expensesResult, arrivalsResult, checkInsResult] = await Promise.all([
     supabase
       .from("hunt_bars")
       .select("*")
@@ -62,15 +62,22 @@ export default defineEventHandler(async (event) => {
       .select("*, hunt_teams(name)")
       .eq("hunt_id", huntId)
       .order("arrived_at"),
+    supabase
+      .from("hunt_check_ins")
+      .select("*, with_team:hunt_teams!hunt_check_ins_with_team_id_fkey(name)")
+      .eq("hunt_id", huntId)
+      .order("created_at"),
   ]);
 
-  // Map hints and arrivals, collect all image paths for batch signed URL generation
+  // Map hints, arrivals, check-ins; collect all image paths for batch signed URL generation
   const mappedHints = (hintsResult.data || []).map(mapHint);
   const mappedArrivals = (arrivalsResult.data || []).map(mapArrival);
+  const mappedCheckIns = (checkInsResult.data || []).map(mapCheckIn);
 
   const allImagePaths = [
     ...mappedHints.map((h) => h.imagePath),
     ...mappedArrivals.map((a) => a.imagePath),
+    ...mappedCheckIns.map((c) => c.imagePath),
   ].filter((p): p is string => !!p);
 
   const signedUrls = await getSignedImageUrls(allImagePaths);
@@ -85,6 +92,11 @@ export default defineEventHandler(async (event) => {
     imageUrl: imagePath ? signedUrls.get(imagePath) || null : null,
   }));
 
+  const checkIns = mappedCheckIns.map(({ imagePath, ...checkIn }) => ({
+    ...checkIn,
+    imageUrl: imagePath ? signedUrls.get(imagePath) || null : null,
+  }));
+
   return {
     hunt: mapHunt(hunt),
     bars: (barsResult.data || []).map(mapBar),
@@ -94,5 +106,6 @@ export default defineEventHandler(async (event) => {
     chickens: (chickensResult.data || []).map(mapChicken),
     expenses: (expensesResult.data || []).map(mapExpense),
     arrivals,
+    checkIns,
   };
 });

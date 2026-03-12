@@ -1,5 +1,5 @@
 /**
- * Supabase Storage helpers for hunt images (hints, arrivals).
+ * Supabase Storage helpers for hunt images (hints, arrivals, check-ins).
  * Uses the admin client (service role) to bypass storage RLS.
  */
 
@@ -87,6 +87,30 @@ export async function uploadArrivalImage(
 ): Promise<string> {
   const admin = getAdminClient();
   const path = `arrivals/${huntId}/${arrivalId}.jpg`;
+
+  const { error } = await admin.storage
+    .from(BUCKET)
+    .upload(path, fileBuffer, {
+      contentType,
+      upsert: false,
+    });
+
+  if (error) throw new Error(`Storage upload failed: ${error.message}`);
+  return path;
+}
+
+/**
+ * Upload a check-in image to the private bucket.
+ * Returns the storage path (e.g. "check-ins/{huntId}/{checkInId}.jpg").
+ */
+export async function uploadCheckInImage(
+  huntId: string,
+  checkInId: string,
+  fileBuffer: Buffer,
+  contentType: string
+): Promise<string> {
+  const admin = getAdminClient();
+  const path = `check-ins/${huntId}/${checkInId}.jpg`;
 
   const { error } = await admin.storage
     .from(BUCKET)

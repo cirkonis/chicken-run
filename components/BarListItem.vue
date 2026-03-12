@@ -10,31 +10,38 @@
     :data-bar-id="bar.id"
     @click="$emit('select', bar)"
   >
+    <!-- Bar info -->
     <div>
-      <div class="text-[15px] leading-snug">{{ bar.name }}</div>
+      <div class="text-[15px] leading-snug font-medium">{{ bar.name }}</div>
       <div class="text-[13px] text-text-muted mt-0.5">{{ bar.address }}</div>
-      <div class="mt-1 text-xs text-text-muted">
-        <span v-if="bar.rating">{{ bar.rating }}</span>
-        <span v-if="bar.ratingsTotal" class="opacity-70">({{ bar.ratingsTotal }})</span>
-        <span v-if="bar.priceLevel">{{ '$'.repeat(bar.priceLevel) }}</span>
-      </div>
+      <a
+        :href="bar.mapsUrl"
+        target="_blank"
+        rel="noreferrer"
+        class="text-xs no-underline text-accent font-semibold hover:underline mt-1 inline-block"
+        @click.stop
+      >Open in Maps</a>
     </div>
-    <div class="flex flex-col items-end gap-2">
-      <div class="flex gap-1">
+
+    <!-- Status or action buttons (right side) -->
+    <div class="flex flex-col gap-1.5 items-end justify-center">
+      <template v-if="bar.checkStatus === 'checked'">
+        <span class="text-xs font-semibold text-green whitespace-nowrap">Visited and checked</span>
+      </template>
+      <template v-else>
         <button
-          class="w-[34px] h-[34px] border-2 rounded-[10px] cursor-pointer bg-surface text-base flex items-center justify-center transition-all opacity-50 hover:opacity-100 hover:scale-110"
-          :class="bar.checkStatus === 'checked' ? 'opacity-100 scale-105 border-green bg-[#f0faf4]' : 'border-border'"
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 cursor-pointer transition-all whitespace-nowrap min-w-[100px] text-center"
+          :class="'border-green/40 bg-[#f0faf4] text-green hover:border-green hover:bg-green/10'"
           @click.stop="$emit('toggle', bar, 'checked')"
-          :title="labels.checked"
-        >&#10003;</button>
+        >{{ labels.checked }}</button>
         <button
-          class="w-[34px] h-[34px] border-2 rounded-[10px] cursor-pointer bg-surface text-base flex items-center justify-center transition-all opacity-50 hover:opacity-100 hover:scale-110"
-          :class="bar.checkStatus === 'not_checking' ? 'opacity-100 scale-105 border-gray bg-[#f0f0f0]' : 'border-border'"
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 cursor-pointer transition-all whitespace-nowrap min-w-[100px] text-center"
+          :class="bar.checkStatus === 'not_checking'
+            ? 'border-gray bg-gray text-white'
+            : 'border-border bg-bg text-text-muted hover:border-gray hover:bg-gray/10'"
           @click.stop="$emit('toggle', bar, 'not_checking')"
-          :title="labels.not_checking"
-        >&#10005;</button>
-      </div>
-      <a :href="bar.mapsUrl" target="_blank" rel="noreferrer" class="text-xs no-underline text-accent font-semibold hover:underline" @click.stop>Maps</a>
+        >{{ bar.checkStatus === 'not_checking' ? labels.notCheckingActive : labels.not_checking }}</button>
+      </template>
     </div>
   </li>
 </template>
@@ -46,11 +53,16 @@ withDefaults(
   defineProps<{
     bar: HuntBar;
     selected?: boolean;
-    labels?: { checked: string; not_checking: string };
+    labels?: { checked: string; checkedActive: string; not_checking: string; notCheckingActive: string };
   }>(),
   {
     selected: false,
-    labels: () => ({ checked: "Mark as visited", not_checking: "Suggest skipping" }),
+    labels: () => ({
+      checked: "Check In",
+      checkedActive: "Checked In",
+      not_checking: "Maybe Skip",
+      notCheckingActive: "Skipping",
+    }),
   }
 );
 defineEmits<{

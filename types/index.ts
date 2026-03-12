@@ -145,3 +145,17 @@ export interface HuntArrival {
   note: string;
   imageUrl?: string | null;
 }
+
+// ── Check-in (team visited a bar) ───────────────────────
+export interface HuntCheckIn {
+  id: string;
+  huntId: string;
+  barId: string;
+  teamId: string | null;
+  withTeamId: string | null;
+  withTeamName: string | null;
+  userId: string;
+  note: string;
+  imageUrl?: string | null;
+  createdAt: string;
+}

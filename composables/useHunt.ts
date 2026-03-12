@@ -2,7 +2,7 @@
  * Composable: all hunt state, data loading, actions, polling, and filtering.
  * Pulls ~300 lines of logic out of pages/hunt/[id].vue.
  */
-import type { Hunt, HuntBar, Hint, Participant, Team, HuntExpense, HuntArrival } from "~/types";
+import type { Hunt, HuntBar, Hint, Participant, Team, HuntExpense, HuntArrival, HuntCheckIn } from "~/types";
 
 const POLL_INTERVAL = 30_000;
 
@@ -22,6 +22,7 @@ export function useHunt(huntId: string) {
   const teams = ref<Team[]>([]);
   const expenses = ref<HuntExpense[]>([]);
   const arrivals = ref<HuntArrival[]>([]);
+  const checkIns = ref<HuntCheckIn[]>([]);
 
   // UI state
   const filter = ref("");
@@ -122,6 +123,7 @@ export function useHunt(huntId: string) {
       teams.value = res.teams || [];
       expenses.value = res.expenses || [];
       arrivals.value = res.arrivals || [];
+      checkIns.value = res.checkIns || [];
       pageLoading.value = false;
     } catch (e: any) {
       error.value = e?.data?.message || e?.message || "Failed to load hunt";
@@ -210,6 +212,52 @@ export function useHunt(huntId: string) {
     }
   }
 
+  // ── Check-Ins ──────────────────────────────────────────
+  const checkInUploading = ref(false);
+
+  async function checkInBar(barId: string, note: string = "", imageFile?: File | null, withTeamId?: string | null) {
+    checkInUploading.value = !!imageFile;
+
+    try {
+      const formData = new FormData();
+      formData.append("note", note);
+
+      if (imageFile) {
+        const { compressImage } = useImageCompression();
+        const compressed = await compressImage(imageFile);
+        formData.append("image", compressed, "checkin.jpg");
+      }
+
+      if (withTeamId) {
+        formData.append("withTeamId", withTeamId);
+      }
+
+      const res = await auth.authFetch<any>(`/api/hunts/${huntId}/bars/${barId}/check-in`, {
+        method: "POST",
+        body: formData,
+      });
+
+      // Add check-in to local state
+      checkIns.value.push(res.checkIn);
+
+      // Update bar status optimistically from the response
+      if (res.bar) {
+        const idx = bars.value.findIndex((b) => b.id === barId);
+        if (idx >= 0) {
+          bars.value[idx].checkStatus = res.bar.checkStatus;
+          bars.value[idx].checkedBy = res.bar.checkedBy;
+          bars.value[idx].checkedAt = res.bar.checkedAt;
+          onMarkersChanged?.();
+        }
+      }
+    } catch (e: any) {
+      error.value = e?.data?.message || e?.message || "Failed to check in";
+      throw e;
+    } finally {
+      checkInUploading.value = false;
+    }
+  }
+
   async function renameTeam(teamId: string, newName: string) {
     try {
       const res = await auth.authFetch<any>(
@@ -268,6 +316,7 @@ export function useHunt(huntId: string) {
       teams.value = res.teams || [];
       expenses.value = res.expenses || [];
       arrivals.value = res.arrivals || [];
+      checkIns.value = res.checkIns || [];
 
       // Update hunt (budget might have changed)
       if (res.hunt) {
@@ -314,11 +363,13 @@ export function useHunt(huntId: string) {
     teams,
     expenses,
     arrivals,
+    checkIns,
     filter,
     statusFilter,
     showHintInput,
     newHint,
     hintUploading,
+    checkInUploading,
     showWelcomeModal,
 
     // Computed
@@ -338,6 +389,7 @@ export function useHunt(huntId: string) {
     searchBars,
     toggleStatus,
     addHint,
+    checkInBar,
     renameTeam,
     refreshHunt,
     formatTime,

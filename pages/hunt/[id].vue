@@ -138,7 +138,7 @@
             <div class="flex flex-wrap gap-3 mt-2 px-3 py-2 bg-bg rounded-[10px] border border-border text-xs items-center">
               <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red"></span> Not visited</span>
               <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-green"></span> Visited</span>
-              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray"></span> Suggest skip</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray"></span> Maybe skip</span>
               <span class="flex-1"></span>
               <button
                 class="flex items-center gap-1 px-2.5 py-1 border-2 rounded-lg cursor-pointer text-xs font-semibold transition-all"
@@ -169,7 +169,7 @@
                 <option value="all">All</option>
                 <option value="unchecked">Unchecked</option>
                 <option value="checked">Visited</option>
-                <option value="not_checking">Suggest skip</option>
+                <option value="not_checking">Maybe skip</option>
               </select>
             </div>
 
@@ -191,10 +191,11 @@
                 :key="b.id"
                 :bar="b"
                 :selected="b.id === selectedBarId"
-                @toggle="toggleStatus"
+                @toggle="handleBarToggle"
                 @select="onBarSelect"
               />
             </ul>
+
           </div>
         </section>
       </main>
@@ -257,6 +258,15 @@
         @confirm="doRenameTeam"
       />
 
+      <!-- Check-In Modal -->
+      <CheckInModal
+        v-model="showCheckInModal"
+        :bar-name="checkInBarName"
+        :teams="otherTeams"
+        :loading="checkInUploading"
+        @submit="onCheckInSubmit"
+      />
+
       <!-- Fullscreen image viewer -->
       <Teleport to="body">
         <div
@@ -283,11 +293,12 @@ const huntId = route.params.id as string;
 // ── Composables ──────────────────────────────────────────
 const {
   pageLoading, error,
-  hunt, bars, hints, participants, teams, arrivals,
+  hunt, bars, hints, participants, teams, arrivals, checkIns,
   filter, statusFilter,
   isCreator, myTeam, myTeamHunterCount, totalHunterCount, statusCounts, filteredBars,
   budgetTotal, budgetSpent, budgetRemaining, budgetPercent,
-  loadHunt, toggleStatus, renameTeam,
+  checkInUploading,
+  loadHunt, toggleStatus, checkInBar, renameTeam,
   setOnMarkersChanged, startPolling, stopPolling,
 } = useHunt(huntId);
 
@@ -372,6 +383,43 @@ function toggleUserLocation() {
   } else {
     const started = startUserLocation();
     locationActive.value = started;
+  }
+}
+
+// ── Check-In Flow (modal-based) ─────────────────────
+const checkInBarId = ref<string | null>(null);
+const showCheckInModal = ref(false);
+
+const checkInBarName = computed(() => {
+  if (!checkInBarId.value) return "";
+  return bars.value.find((b) => b.id === checkInBarId.value)?.name || "Bar";
+});
+
+/** Non-chicken teams excluding the current user's team (for "ran into" selector) */
+const otherTeams = computed(() =>
+  teams.value.filter((t) => !t.isChicken && t.id !== myTeam.value?.id)
+);
+
+/** Intercept check-in / skip toggles on bars */
+function handleBarToggle(bar: HuntBar, target: string) {
+  if (target === "checked" && bar.checkStatus === "unchecked") {
+    // Open the check-in modal
+    checkInBarId.value = bar.id;
+    showCheckInModal.value = true;
+  } else {
+    // Toggle as before (uncheck or suggest skip)
+    toggleStatus(bar, target);
+  }
+}
+
+async function onCheckInSubmit(payload: { note: string; image: File; withTeamId: string | null }) {
+  if (!checkInBarId.value) return;
+  try {
+    await checkInBar(checkInBarId.value, payload.note, payload.image, payload.withTeamId);
+    showCheckInModal.value = false;
+    checkInBarId.value = null;
+  } catch {
+    // error is set in the composable
   }
 }
 
