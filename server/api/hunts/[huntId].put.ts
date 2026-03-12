@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   // Verify this hunt exists and user is the creator
   const { data: hunt, error: huntError } = await supabase
     .from("hunts")
-    .select("id, creator_id")
+    .select("id, creator_id, status")
     .eq("id", huntId)
     .single();
 
@@ -35,6 +35,11 @@ export default defineEventHandler(async (event) => {
 
   if (hunt.creator_id !== userId) {
     throw createError({ statusCode: 403, statusMessage: "Only the hunt creator can edit it" });
+  }
+
+  // Lock edits once hunt has been started
+  if (hunt.status !== "preparing") {
+    throw createError({ statusCode: 403, statusMessage: "Hunt is locked. Cannot edit while running or completed." });
   }
 
   // Update hunt fields if provided

@@ -2,7 +2,7 @@ import { defineEventHandler, getRouterParam, readBody, createError } from "h3";
 import { getUserClient } from "../../../utils/supabase";
 
 // PATCH /api/hunts/:huntId/status
-// Body: { status: "active" | "completed" | "archived" }
+// Body: { status: "preparing" | "active" | "completed" }
 // Creator only — changes the hunt status.
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId!;
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody<{ status: string }>(event);
-  const validStatuses = ["active", "completed", "archived"];
+  const validStatuses = ["preparing", "active", "completed"];
 
   if (!body?.status || !validStatuses.includes(body.status)) {
     throw createError({
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
   // Verify hunt exists and user is the creator
   const { data: hunt, error: huntError } = await supabase
     .from("hunts")
-    .select("id, creator_id")
+    .select("id, creator_id, status")
     .eq("id", huntId)
     .single();
 
@@ -38,10 +38,23 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "Only the hunt creator can change status" });
   }
 
+  // Build update payload
+  const updatePayload: Record<string, any> = { status: body.status };
+
+  // Set started_at when transitioning to active
+  if (body.status === "active" && hunt.status !== "active") {
+    updatePayload.started_at = new Date().toISOString();
+  }
+
+  // Clear started_at when going back to preparing
+  if (body.status === "preparing") {
+    updatePayload.started_at = null;
+  }
+
   // Update status
   const { data: updated, error: updateError } = await supabase
     .from("hunts")
-    .update({ status: body.status })
+    .update(updatePayload)
     .eq("id", huntId)
     .select()
     .single();

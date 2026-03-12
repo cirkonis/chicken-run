@@ -19,7 +19,10 @@
         <div class="flex items-start justify-between gap-3 mb-3">
           <div class="flex flex-col gap-1">
             <button class="self-start bg-transparent border-none text-accent font-semibold text-[13px] cursor-pointer p-0 mb-1 hover:underline" @click="goBack" title="Back">← Back</button>
-            <h1 class="m-0 text-2xl text-accent-dark">🐔 {{ hunt.name }}</h1>
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <h1 class="m-0 text-2xl text-accent-dark">🐔 {{ hunt.name }}</h1>
+              <HuntTimer v-if="hunt.startedAt" :started-at="hunt.startedAt" />
+            </div>
             <span class="text-sm text-text-muted italic">
               Playing as <strong>{{ auth.state.user?.displayName || 'Unknown' }}</strong> · Chicken
             </span>
@@ -54,10 +57,10 @@
                 <div class="flex-1">
                   <div class="text-xs font-semibold uppercase tracking-wide text-text-muted mb-0.5">Money left</div>
                   <div class="text-2xl font-bold text-accent-dark">
-                    {{ budgetRemaining }} kr
-                    <span class="text-sm font-normal text-text-muted">of {{ budgetTotal }} kr</span>
+                    {{ budgetRemaining }}
+                    <span class="text-sm font-normal text-text-muted">of {{ budgetTotal }}</span>
                   </div>
-                  <div class="text-xs text-text-muted mt-1">Spent: {{ budgetSpent }} kr</div>
+                  <div class="text-xs text-text-muted mt-1">Spent: {{ budgetSpent }}</div>
                 </div>
                 <div
                   class="w-16 h-16 rounded-full border-4 flex items-center justify-center"
@@ -84,7 +87,7 @@
                   v-model="spendAmount"
                   type="number"
                   inputmode="numeric"
-                  placeholder="Amount (kr)"
+                  placeholder="Amount"
                   min="1"
                   class="w-full px-3 py-2 border-2 border-border rounded-lg text-sm bg-bg focus:outline-none focus:border-accent"
                 />
@@ -120,7 +123,7 @@
                   :key="e.id"
                   class="flex items-center gap-2 px-3 py-2 bg-white/60 border border-chicken-yellow/30 rounded-lg text-sm"
                 >
-                  <span class="font-bold text-accent-dark min-w-[50px]">{{ e.amount }} kr</span>
+                  <span class="font-bold text-accent-dark min-w-[50px]">{{ e.amount }}</span>
                   <span class="flex-1 text-text-muted text-xs truncate">{{ e.note || '—' }}</span>
                   <span class="text-[11px] text-text-muted opacity-60 whitespace-nowrap">{{ formatTime(e.createdAt) }}</span>
                   <button

@@ -19,7 +19,10 @@
         <div class="flex items-start justify-between gap-3 mb-3">
           <div class="flex flex-col gap-1">
             <button class="self-start bg-transparent border-none text-accent font-semibold text-[13px] cursor-pointer p-0 mb-1 hover:underline" @click="goBack" title="Back">← Back</button>
-            <h1 class="m-0 text-2xl text-accent-dark">🐔 {{ hunt.name }}</h1>
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <h1 class="m-0 text-2xl text-accent-dark">🐔 {{ hunt.name }}</h1>
+              <HuntTimer v-if="hunt.startedAt" :started-at="hunt.startedAt" />
+            </div>
             <span class="text-sm text-text-muted italic">
               Playing as <strong>{{ auth.state.user?.displayName || 'Unknown' }}</strong>
               <template v-if="myTeam"> · Team: <strong>{{ myTeam.name }}</strong></template>
@@ -72,8 +75,8 @@
               <div class="flex-1">
                 <div class="text-xs font-semibold uppercase tracking-wide text-text-muted mb-0.5">Money left</div>
                 <div class="text-2xl font-bold text-accent-dark">
-                  {{ budgetRemaining }} kr
-                  <span class="text-sm font-normal text-text-muted">of {{ budgetTotal }} kr</span>
+                  {{ budgetRemaining }}
+                  <span class="text-sm font-normal text-text-muted">of {{ budgetTotal }}</span>
                 </div>
               </div>
               <div

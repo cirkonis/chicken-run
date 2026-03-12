@@ -8,7 +8,8 @@ export interface Hunt {
   centerLng: number;
   radiusMeters: number;
   budget: number | null;
-  status: "active" | "completed" | "archived";
+  status: "preparing" | "active" | "completed";
+  startedAt: string | null;
   creatorId: string;
   createdAt: string;
   teams?: Team[];

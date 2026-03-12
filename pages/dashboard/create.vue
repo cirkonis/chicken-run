@@ -52,17 +52,7 @@
             <p class="text-xs text-text-muted m-0 mt-1">
               <strong>Note:</strong> Don't worry, the location and radius can be changed later in the manage hunt page.
             </p>
-            <label class="flex flex-col gap-1 mt-1">
-              <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Budget (kr) — optional</span>
-              <input
-                v-model="budget"
-                type="number"
-                inputmode="numeric"
-                placeholder="Leave blank for no budget"
-                min="0"
-                class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent"
-              />
-            </label>
+            <!-- Budget can be set later in the manage hunt page -->
           </div>
         </section>
 
@@ -94,8 +84,6 @@ const huntName = ref("");
 const lat = ref("55.678831");
 const lng = ref("12.579570");
 const radius = ref("1500");
-const budget = ref("");
-
 // UI state
 const error = ref("");
 const submitting = ref(false);
@@ -136,8 +124,6 @@ async function createHunt() {
       centerLng: Number(lng.value),
       radiusMeters: Number(radius.value) || 1500,
     };
-    if (budget.value) createBody.budget = Number(budget.value);
-
     const res = await auth.authFetch<{ hunt: any }>("/api/hunts", {
       method: "POST",
       body: createBody,

@@ -6,11 +6,11 @@
       <span
         class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold uppercase tracking-wide"
         :class="{
+          'bg-[#fff8e1] text-amber-700': hunt.status === 'preparing',
           'bg-[#e8f5e9] text-green': hunt.status === 'active',
-          'bg-[#e3f2fd] text-[#1976d2]': hunt.status === 'completed',
-          'bg-[#f5f5f5] text-gray': hunt.status === 'archived',
+          'bg-[#f5f5f5] text-gray': hunt.status === 'completed',
         }"
-      >{{ hunt.status }}</span>
+      >{{ statusLabel }}</span>
     </div>
 
     <!-- Stats grid -->
@@ -51,7 +51,16 @@
 <script setup lang="ts">
 import type { HuntWithRole } from "~/types";
 
-defineProps<{ hunt: HuntWithRole }>();
+const props = defineProps<{ hunt: HuntWithRole }>();
+
+const statusLabel = computed(() => {
+  switch (props.hunt.status) {
+    case "preparing": return "Preparing";
+    case "active": return "Running";
+    case "completed": return "Completed";
+    default: return props.hunt.status;
+  }
+});
 
 function formatDate(iso: string): string {
   try {

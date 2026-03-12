@@ -20,6 +20,31 @@
         <NuxtLink to="/dashboard" class="text-[13px] text-accent no-underline font-semibold hover:underline">← Dashboard</NuxtLink>
         <h1 class="mt-1 mb-0 text-2xl text-accent-dark">✏️ Manage Hunt</h1>
         <p class="text-text-muted text-sm mt-1">Update your hunt, manage teams, and get ready to go.</p>
+
+        <!-- Status badge + Start button -->
+        <div class="flex items-center gap-3 mt-3">
+          <span
+            v-if="huntStatus === 'preparing'"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#fff8e1] border border-chicken-yellow rounded-lg text-xs font-semibold text-amber-700"
+          >Being Prepared</span>
+          <span
+            v-else-if="huntStatus === 'active'"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green/10 border border-green/30 rounded-lg text-xs font-semibold text-green"
+          ><span class="w-1.5 h-1.5 rounded-full bg-green animate-pulse"></span> Currently Running</span>
+          <span
+            v-else-if="huntStatus === 'completed'"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray/10 border border-gray/30 rounded-lg text-xs font-semibold text-gray"
+          >Hunt Completed</span>
+
+          <HuntTimer v-if="startedAt" :started-at="startedAt" />
+
+          <button
+            v-if="huntStatus === 'preparing'"
+            type="button"
+            class="ml-auto px-5 py-2 border-0 rounded-xl cursor-pointer bg-green text-white font-bold text-sm transition-colors hover:bg-green/90"
+            @click="showStartModal = true"
+          >Start Hunt</button>
+        </div>
       </header>
 
       <form @submit.prevent="saveHunt" class="flex flex-col gap-5 pb-20">
@@ -28,30 +53,10 @@
           v-model="huntName"
           type="text"
           placeholder="Hunt name"
-          class="px-4 py-3 border-2 border-border rounded-[18px] text-lg font-semibold bg-surface w-full focus:outline-none focus:border-accent"
+          class="px-4 py-3 border-2 border-border rounded-[18px] text-lg font-semibold bg-surface w-full focus:outline-none focus:border-accent disabled:opacity-60 disabled:cursor-not-allowed"
+          :disabled="!isPreparing"
           required
         />
-
-        <!-- Budget -->
-        <div class="flex items-center gap-3">
-          <label class="flex flex-col gap-1 flex-1">
-            <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Budget (kr)</span>
-            <input
-              v-model="budget"
-              type="number"
-              inputmode="numeric"
-              placeholder="Optional — leave blank for no budget"
-              min="0"
-              class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent"
-            />
-          </label>
-          <button
-            v-if="budget"
-            type="button"
-            class="mt-5 px-3 py-2 border-2 border-border rounded-lg bg-surface text-xs text-text-muted cursor-pointer transition-all hover:border-red hover:text-red"
-            @click="budget = ''"
-          >Clear</button>
-        </div>
 
         <!-- Hunt Codes -->
         <section class="bg-surface border-2 border-border rounded-[18px] p-6">
@@ -101,6 +106,31 @@
           </div>
         </section>
 
+        <!-- Budget -->
+        <div v-if="isPreparing" class="flex items-center gap-3">
+          <label class="flex flex-col gap-1 flex-1">
+            <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Budget</span>
+            <input
+              v-model="budget"
+              type="number"
+              inputmode="numeric"
+              placeholder="Optional — leave blank for no budget"
+              min="0"
+              class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent"
+            />
+          </label>
+          <button
+            v-if="budget"
+            type="button"
+            class="mt-5 px-3 py-2 border-2 border-border rounded-lg bg-surface text-xs text-text-muted cursor-pointer transition-all hover:border-red hover:text-red"
+            @click="budget = ''"
+          >Clear</button>
+        </div>
+        <div v-else class="flex items-center gap-2">
+          <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Budget:</span>
+          <span class="text-sm font-semibold">{{ budget ? `${budget}` : 'No budget set' }}</span>
+        </div>
+
         <!-- Hunting Grounds -->
         <section class="bg-surface border-2 border-border rounded-[18px] p-6">
           <div class="flex justify-between items-center" :class="mapOpen ? 'mb-3.5' : ''">
@@ -113,47 +143,55 @@
             >{{ mapOpen ? 'Hide map' : 'Show map' }}</button>
           </div>
           <div v-show="mapOpen" class="flex flex-col gap-2.5">
-              <div class="grid grid-cols-3 gap-2">
-                <label class="flex flex-col gap-1">
-                  <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Lat</span>
-                  <input v-model="lat" inputmode="decimal" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" required />
-                </label>
-                <label class="flex flex-col gap-1">
-                  <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Lng</span>
-                  <input v-model="lng" inputmode="decimal" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" required />
-                </label>
-                <label class="flex flex-col gap-1">
-                  <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Radius (m)</span>
-                  <input v-model="radius" inputmode="numeric" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" />
-                </label>
-              </div>
-              <!-- Location picker map -->
-              <div>
-                <div class="flex items-center gap-2 mb-1.5">
-                  <button
-                    type="button"
-                    class="px-3 py-1.5 border-2 rounded-lg text-xs font-semibold cursor-pointer transition-all"
-                    :class="pickingMode
-                      ? 'border-accent bg-accent text-white'
-                      : 'border-border bg-bg text-text-muted hover:border-accent hover:text-accent'"
-                    @click="togglePickingMode"
-                  >
-                    {{ pickingMode ? '📍 Picking...' : '📍 Set new location' }}
-                  </button>
-                  <button
-                    v-if="locationChanged"
-                    type="button"
-                    class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
-                    @click="resetLocation"
-                  >
-                    ↩ Put it back
-                  </button>
-                  <span v-if="pickingMode" class="text-xs text-accent italic animate-pulse">Click the map to move the pin</span>
+              <template v-if="isPreparing">
+                <div class="grid grid-cols-3 gap-2">
+                  <label class="flex flex-col gap-1">
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Lat</span>
+                    <input v-model="lat" inputmode="decimal" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" required />
+                  </label>
+                  <label class="flex flex-col gap-1">
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Lng</span>
+                    <input v-model="lng" inputmode="decimal" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" required />
+                  </label>
+                  <label class="flex flex-col gap-1">
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Radius (m)</span>
+                    <input v-model="radius" inputmode="numeric" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg w-full focus:outline-none focus:border-accent" />
+                  </label>
                 </div>
-                <div class="rounded-xl overflow-hidden border-2 transition-colors relative z-0" :class="pickingMode ? 'border-accent' : 'border-border'">
+                <!-- Location picker map -->
+                <div>
+                  <div class="flex items-center gap-2 mb-1.5">
+                    <button
+                      type="button"
+                      class="px-3 py-1.5 border-2 rounded-lg text-xs font-semibold cursor-pointer transition-all"
+                      :class="pickingMode
+                        ? 'border-accent bg-accent text-white'
+                        : 'border-border bg-bg text-text-muted hover:border-accent hover:text-accent'"
+                      @click="togglePickingMode"
+                    >
+                      {{ pickingMode ? '📍 Picking...' : '📍 Set new location' }}
+                    </button>
+                    <button
+                      v-if="locationChanged"
+                      type="button"
+                      class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold text-text-muted cursor-pointer transition-all hover:border-accent hover:text-accent"
+                      @click="resetLocation"
+                    >
+                      ↩ Put it back
+                    </button>
+                    <span v-if="pickingMode" class="text-xs text-accent italic animate-pulse">Click the map to move the pin</span>
+                  </div>
+                  <div class="rounded-xl overflow-hidden border-2 transition-colors relative z-0" :class="pickingMode ? 'border-accent' : 'border-border'">
+                    <div ref="pickerMapEl" class="h-[280px] w-full"></div>
+                  </div>
+                </div>
+              </template>
+              <template v-else>
+                <p class="text-xs text-text-muted m-0 mb-2">Location is locked while the hunt is running.</p>
+                <div class="rounded-xl overflow-hidden border-2 border-border relative z-0">
                   <div ref="pickerMapEl" class="h-[280px] w-full"></div>
                 </div>
-              </div>
+              </template>
           </div>
         </section>
 
@@ -193,9 +231,9 @@
             Searching for bars...
           </div>
 
-          <!-- Update bars button (always visible when location changed) -->
+          <!-- Update bars button (only when preparing and location changed) -->
           <button
-            v-if="locationChanged && !searchingBars"
+            v-if="isPreparing && locationChanged && !searchingBars"
             type="button"
             class="mt-3 px-5 py-2.5 border-2 border-accent rounded-xl bg-transparent text-accent font-semibold text-sm cursor-pointer transition-all animate-pulse hover:bg-accent hover:text-white"
             @click="updateBars"
@@ -213,6 +251,7 @@
                 class="flex-1 px-2.5 py-2 border-2 border-border rounded-[10px] text-sm bg-bg focus:outline-none focus:border-accent"
               />
               <select
+                v-if="isPreparing"
                 v-model="barStatusFilter"
                 class="px-2.5 py-2 border-2 border-border rounded-[10px] bg-bg text-[13px]"
               >
@@ -221,9 +260,9 @@
               </select>
             </div>
 
-            <!-- Remove action bar -->
+            <!-- Remove action bar (only when preparing) -->
             <div
-              v-if="markedForRemoval.size > 0"
+              v-if="isPreparing && markedForRemoval.size > 0"
               class="flex items-center justify-between px-3 py-2.5 mb-3 bg-[#fef0ef] border-2 border-red rounded-xl"
             >
               <span class="text-sm font-semibold text-red">
@@ -261,7 +300,7 @@
                     <a :href="bar.mapsUrl" target="_blank" rel="noreferrer" class="ml-1.5 no-underline text-accent font-semibold hover:underline" @click.stop>Maps ↗</a>
                   </div>
                 </div>
-                <div class="flex items-center">
+                <div v-if="isPreparing" class="flex items-center">
                   <button
                     type="button"
                     class="w-[34px] h-[34px] border-2 rounded-[10px] cursor-pointer text-base flex items-center justify-center transition-all"
@@ -290,13 +329,15 @@
               <p v-else class="text-xs text-text-muted m-0 mt-0.5">No teams configured yet</p>
             </div>
             <button
+              v-if="isPreparing"
               type="button"
               class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent mt-0.5"
               :class="teamsOpen ? 'border-accent text-accent' : 'text-text-muted'"
               @click="teamsOpen = !teamsOpen"
             >{{ teamsOpen ? 'Close' : 'Manage teams' }}</button>
+            <span v-else class="text-xs text-text-muted mt-0.5">Locked</span>
           </div>
-          <TeamManager v-if="teamsOpen" v-model="teams" />
+          <TeamManager v-if="isPreparing && teamsOpen" v-model="teams" />
         </section>
 
         <!-- Error display -->
@@ -306,7 +347,7 @@
         <section class="bg-surface border-2 border-red/20 rounded-[18px] p-6">
           <h2 class="m-0 mb-2 text-lg text-red">Scary Stuff</h2>
           <p class="text-sm text-text-muted mb-4">These actions affect the hunt for all participants.</p>
-          <div class="flex gap-3">
+          <div class="flex gap-3 flex-wrap">
             <button
               v-if="huntStatus === 'active'"
               type="button"
@@ -320,6 +361,7 @@
               @click="doReactivate"
             >Reactivate Hunt</button>
             <button
+              v-if="huntStatus === 'preparing'"
               type="button"
               class="px-5 py-2.5 border-2 border-red rounded-xl bg-surface text-red font-semibold text-sm cursor-pointer transition-all hover:bg-red hover:text-white"
               @click="showDeleteModal = true"
@@ -327,6 +369,16 @@
           </div>
         </section>
       </form>
+
+      <!-- Start Hunt modal -->
+      <ConfirmModal
+        v-model="showStartModal"
+        title="Start this hunt?"
+        message="Once started, the hunt name, budget, hunting grounds, teams, and bars will be locked. Players can begin hunting!"
+        confirm-label="Start Hunt"
+        :loading="dangerLoading"
+        @confirm="doStartHunt"
+      />
 
       <!-- End Hunt modal -->
       <ConfirmModal
@@ -383,7 +435,7 @@
           leave-to-class="translate-y-full"
         >
           <div
-            v-if="isDirty"
+            v-if="isPreparing && isDirty"
             class="fixed bottom-0 inset-x-0 z-50 bg-white/95 backdrop-blur border-t-2 border-accent/30 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] px-4 py-3"
           >
             <div class="max-w-[700px] mx-auto flex items-center justify-between gap-3">
@@ -484,10 +536,15 @@ const error = ref("");
 const submitting = ref(false);
 
 // Hunt status + danger zone
-const huntStatus = ref<string>("active");
+const huntStatus = ref<string>("preparing");
+const startedAt = ref<string | null>(null);
+const showStartModal = ref(false);
 const showEndModal = ref(false);
 const showDeleteModal = ref(false);
 const dangerLoading = ref(false);
+
+/** True when the hunt is still being prepared (editable) */
+const isPreparing = computed(() => huntStatus.value === "preparing");
 
 // Team summary for the header
 const teamSummary = computed(() => {
@@ -506,6 +563,20 @@ const teamSummary = computed(() => {
   return parts.join(" against ") || "None";
 });
 
+async function doStartHunt() {
+  dangerLoading.value = true;
+  try {
+    const res = await auth.authFetch<{ hunt: any }>(`/api/hunts/${huntId}/status`, { method: "PATCH", body: { status: "active" } });
+    huntStatus.value = "active";
+    startedAt.value = res.hunt?.startedAt ?? new Date().toISOString();
+    showStartModal.value = false;
+  } catch (e: any) {
+    error.value = e?.data?.message || e?.message || "Failed to start hunt";
+  } finally {
+    dangerLoading.value = false;
+  }
+}
+
 async function doEndHunt() {
   dangerLoading.value = true;
   try {
@@ -522,8 +593,9 @@ async function doEndHunt() {
 async function doReactivate() {
   dangerLoading.value = true;
   try {
-    await auth.authFetch(`/api/hunts/${huntId}/status`, { method: "PATCH", body: { status: "active" } });
-    huntStatus.value = "active";
+    await auth.authFetch(`/api/hunts/${huntId}/status`, { method: "PATCH", body: { status: "preparing" } });
+    huntStatus.value = "preparing";
+    startedAt.value = null;
   } catch (e: any) {
     error.value = e?.data?.message || e?.message || "Failed to reactivate hunt";
   } finally {
@@ -754,6 +826,7 @@ async function loadHunt() {
     budget.value = h.budget != null ? String(h.budget) : "";
     hunterCode.value = h.hunterCode;
     huntStatus.value = h.status;
+    startedAt.value = h.startedAt ?? null;
 
     // Track saved location for change detection
     savedLat.value = lat.value;
