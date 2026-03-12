@@ -73,7 +73,7 @@
             ? 'bg-accent text-white shadow-sm'
             : 'bg-transparent text-text-muted hover:text-accent'"
           @click="activeTab = 'feed'"
-        >Feed</button>
+        >Feed<span v-if="hasUnseenFeed" class="inline-block w-2 h-2 rounded-full bg-red ml-1.5 animate-pulse align-middle"></span></button>
       </div>
 
       <!-- Hunt tab content -->
@@ -352,6 +352,20 @@ setOnMarkersChanged(() => paintMarkers(filteredBars.value));
 // ── Tabs ─────────────────────────────────────────────────
 const activeTab = ref<'hunt' | 'feed'>('hunt');
 
+// ── Feed notification dot ────────────────────────────────
+const seenCheckInCount = ref(0);
+const hasUnseenFeed = computed(() =>
+  activeTab.value !== 'feed' && checkIns.value.length > seenCheckInCount.value
+);
+
+watch(activeTab, (tab) => {
+  if (tab === 'feed') seenCheckInCount.value = checkIns.value.length;
+});
+
+watch(() => checkIns.value.length, (count) => {
+  if (activeTab.value === 'feed') seenCheckInCount.value = count;
+});
+
 // ── Map toggle ───────────────────────────────────────────
 const mapEl = ref<HTMLDivElement | null>(null);
 const cluckingOpen = ref(true);
@@ -528,6 +542,7 @@ onMounted(async () => {
   }
 
   await loadHunt();
+  seenCheckInCount.value = checkIns.value.length;
 
   // Init map once the template is rendered (pageLoading is now false)
   await nextTick();
