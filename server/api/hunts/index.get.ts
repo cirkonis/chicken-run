@@ -1,10 +1,22 @@
 import { defineEventHandler } from "h3";
-import { getUserClient } from "../../utils/supabase";
+import { getUserClient, getAdminClient } from "../../utils/supabase";
+
+const HUNT_TTL_DAYS = 90;
 
 // GET /api/hunts — list all hunts the current user is a participant in
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId!;
   const supabase = getUserClient(event);
+  const admin = getAdminClient();
+
+  // Clean up expired completed hunts for this user
+  const ninetyDaysAgo = new Date(Date.now() - HUNT_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  await admin
+    .from("hunts")
+    .delete()
+    .eq("creator_id", userId)
+    .eq("status", "completed")
+    .lt("completed_at", ninetyDaysAgo);
 
   // Get hunts the user participates in
   const { data: participations, error: pError } = await supabase
@@ -93,6 +105,9 @@ export default defineEventHandler(async (event) => {
     barCountMap.set(b.hunt_id, (barCountMap.get(b.hunt_id) || 0) + 1);
   }
 
+  // Count hunts the user created (for limit display)
+  const createdCount = (createdHunts || []).length;
+
   return {
     hunts: allHunts.map((h) =>
       mapHuntWithRole(
@@ -106,5 +121,7 @@ export default defineEventHandler(async (event) => {
         }
       )
     ),
+    huntCount: createdCount,
+    maxHunts: 3,
   };
 });

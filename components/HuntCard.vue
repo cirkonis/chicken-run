@@ -39,6 +39,9 @@
     <!-- Meta -->
     <div class="flex gap-3 text-xs text-text-muted mb-3">
       <span>{{ formatDate(hunt.createdAt) }}</span>
+      <span v-if="hunt.status === 'completed' && daysUntilRemoval != null" class="text-red/70">
+        Auto-removes in {{ daysUntilRemoval }} day{{ daysUntilRemoval !== 1 ? 's' : '' }}
+      </span>
     </div>
 
     <!-- Action buttons -->
@@ -101,6 +104,14 @@ const emit = defineEmits<{ updated: [] }>();
 const showStartModal = ref(false);
 const showEndModal = ref(false);
 const actionLoading = ref(false);
+
+const daysUntilRemoval = computed(() => {
+  if (props.hunt.status !== "completed" || !props.hunt.completedAt) return null;
+  const completedMs = new Date(props.hunt.completedAt).getTime();
+  const expiresMs = completedMs + 90 * 24 * 60 * 60 * 1000;
+  const remaining = Math.ceil((expiresMs - Date.now()) / (24 * 60 * 60 * 1000));
+  return Math.max(remaining, 0);
+});
 
 const statusLabel = computed(() => {
   switch (props.hunt.status) {

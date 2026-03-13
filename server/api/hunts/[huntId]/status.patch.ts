@@ -46,9 +46,15 @@ export default defineEventHandler(async (event) => {
     updatePayload.started_at = new Date().toISOString();
   }
 
+  // Set completed_at when transitioning to completed
+  if (body.status === "completed" && hunt.status !== "completed") {
+    updatePayload.completed_at = new Date().toISOString();
+  }
+
   // Clear started_at when going back to preparing
   if (body.status === "preparing") {
     updatePayload.started_at = null;
+    updatePayload.completed_at = null;
   }
 
   // Update status

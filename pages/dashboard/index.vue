@@ -15,12 +15,25 @@
       </header>
 
       <!-- Create New Hunt CTA -->
-      <NuxtLink
-        to="/dashboard/create"
-        class="flex items-center justify-center gap-2 w-full px-6 py-4 mb-7 border-2 border-dashed border-accent rounded-[18px] bg-surface text-accent font-bold text-base no-underline transition-all hover:bg-accent hover:text-white hover:border-solid"
-      >
-        + Create a New Hunt
-      </NuxtLink>
+      <div class="mb-7">
+        <NuxtLink
+          v-if="huntCount < maxHunts"
+          to="/dashboard/create"
+          class="flex items-center justify-center gap-2 w-full px-6 py-4 border-2 border-dashed border-accent rounded-[18px] bg-surface text-accent font-bold text-base no-underline transition-all hover:bg-accent hover:text-white hover:border-solid"
+        >
+          + Create a New Hunt
+        </NuxtLink>
+        <div
+          v-else
+          class="flex items-center justify-center gap-2 w-full px-6 py-4 border-2 border-dashed border-border rounded-[18px] bg-bg text-text-muted font-bold text-base cursor-not-allowed"
+        >
+          Hunt limit reached
+        </div>
+        <div class="flex justify-between items-center mt-2 px-1">
+          <span class="text-xs text-text-muted">{{ huntCount }} / {{ maxHunts }} hunts used</span>
+          <span class="text-[11px] text-text-muted italic">Completed hunts auto-remove after 90 days</span>
+        </div>
+      </div>
 
       <!-- My Hunts -->
       <div>
@@ -52,6 +65,8 @@ const auth = useAuth();
 
 const hunts = ref<HuntWithRole[]>([]);
 const huntsLoading = ref(true);
+const huntCount = ref(0);
+const maxHunts = ref(3);
 
 onMounted(async () => {
   await auth.restore();
@@ -63,8 +78,10 @@ onMounted(async () => {
 async function loadHunts() {
   huntsLoading.value = true;
   try {
-    const res = await auth.authFetch<{ hunts: HuntWithRole[] }>("/api/hunts");
+    const res = await auth.authFetch<{ hunts: HuntWithRole[]; huntCount: number; maxHunts: number }>("/api/hunts");
     hunts.value = res.hunts;
+    huntCount.value = res.huntCount ?? 0;
+    maxHunts.value = res.maxHunts ?? 3;
   } catch {
     // silent
   } finally {

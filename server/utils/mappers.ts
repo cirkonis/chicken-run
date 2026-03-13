@@ -18,6 +18,7 @@ export function mapHunt(row: Record<string, any>): Hunt {
     budget: row.budget ?? null,
     status: row.status,
     startedAt: row.started_at ?? null,
+    completedAt: row.completed_at ?? null,
     creatorId: row.creator_id,
     createdAt: row.created_at,
   };

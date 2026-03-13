@@ -1,12 +1,16 @@
 import { defineEventHandler, readBody, createError } from "h3";
-import { getUserClient } from "../../utils/supabase";
+import { getUserClient, getAdminClient } from "../../utils/supabase";
 import type { TeamInput } from "~/types";
+
+const MAX_HUNTS_PER_USER = 3;
+const HUNT_TTL_DAYS = 90;
 
 // POST /api/hunts — create a new hunt (optionally with teams including chicken team)
 // Body: { name, centerLat, centerLng, radiusMeters?, budget?, teams?: TeamInput[] }
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId!;
   const supabase = getUserClient(event);
+  const admin = getAdminClient();
 
   const body = await readBody<{
     name: string;
@@ -21,6 +25,28 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 400,
       statusMessage: "name, centerLat, and centerLng are required",
+    });
+  }
+
+  // Clean up expired completed hunts for this user
+  const ninetyDaysAgo = new Date(Date.now() - HUNT_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  await admin
+    .from("hunts")
+    .delete()
+    .eq("creator_id", userId)
+    .eq("status", "completed")
+    .lt("completed_at", ninetyDaysAgo);
+
+  // Enforce hunt limit
+  const { count } = await admin
+    .from("hunts")
+    .select("id", { count: "exact", head: true })
+    .eq("creator_id", userId);
+
+  if (count != null && count >= MAX_HUNTS_PER_USER) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: `You can have at most ${MAX_HUNTS_PER_USER} hunts. Delete an old one first.`,
     });
   }
 

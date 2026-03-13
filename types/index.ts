@@ -10,6 +10,7 @@ export interface Hunt {
   budget: number | null;
   status: "preparing" | "active" | "completed";
   startedAt: string | null;
+  completedAt: string | null;
   creatorId: string;
   createdAt: string;
   teams?: Team[];
