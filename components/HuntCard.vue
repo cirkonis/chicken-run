@@ -4,7 +4,7 @@
     <div class="flex justify-between items-center mb-3">
       <div class="font-bold text-base">{{ hunt.name }}</div>
       <div class="flex items-center gap-2">
-        <HuntTimer v-if="hunt.status === 'active' && hunt.startedAt" :started-at="hunt.startedAt" />
+        <HuntTimer v-if="hunt.startedAt" :started-at="hunt.startedAt" :ended-at="hunt.completedAt" />
         <span
           class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold uppercase tracking-wide"
           :class="{

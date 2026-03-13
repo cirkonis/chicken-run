@@ -95,22 +95,27 @@ const huntDuration = computed(() => {
   if (!hunt.value?.startedAt) return "";
   const start = new Date(hunt.value.startedAt).getTime();
 
-  // Find the latest event timestamp as approximate end time
-  let latest = start;
-  for (const ci of checkIns.value) {
-    const t = new Date(ci.createdAt).getTime();
-    if (t > latest) latest = t;
-  }
-  for (const a of arrivals.value) {
-    const t = new Date(a.arrivedAt).getTime();
-    if (t > latest) latest = t;
-  }
-  for (const h of hints.value) {
-    const t = new Date(h.createdAt).getTime();
-    if (t > latest) latest = t;
+  // Use completedAt if available, otherwise fall back to latest event
+  let end = hunt.value.completedAt
+    ? new Date(hunt.value.completedAt).getTime()
+    : start;
+
+  if (!hunt.value.completedAt) {
+    for (const ci of checkIns.value) {
+      const t = new Date(ci.createdAt).getTime();
+      if (t > end) end = t;
+    }
+    for (const a of arrivals.value) {
+      const t = new Date(a.arrivedAt).getTime();
+      if (t > end) end = t;
+    }
+    for (const h of hints.value) {
+      const t = new Date(h.createdAt).getTime();
+      if (t > end) end = t;
+    }
   }
 
-  const diff = latest - start;
+  const diff = end - start;
   if (diff < 60000) return "less than a minute";
   const mins = Math.round(diff / 60000);
   if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"}`;

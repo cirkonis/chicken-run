@@ -36,7 +36,7 @@
             class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray/10 border border-gray/30 rounded-lg text-xs font-semibold text-gray"
           >Hunt Completed</span>
 
-          <HuntTimer v-if="startedAt" :started-at="startedAt" />
+          <HuntTimer v-if="startedAt" :started-at="startedAt" :ended-at="completedAt" />
 
           <button
             v-if="huntStatus === 'preparing'"
@@ -524,6 +524,7 @@ const submitting = ref(false);
 // Hunt status + danger zone
 const huntStatus = ref<string>("preparing");
 const startedAt = ref<string | null>(null);
+const completedAt = ref<string | null>(null);
 const showStartModal = ref(false);
 const showEndModal = ref(false);
 const showDeleteModal = ref(false);
@@ -566,8 +567,9 @@ async function doStartHunt() {
 async function doEndHunt() {
   dangerLoading.value = true;
   try {
-    await auth.authFetch(`/api/hunts/${huntId}/status`, { method: "PATCH", body: { status: "completed" } });
+    const res = await auth.authFetch<{ hunt: any }>(`/api/hunts/${huntId}/status`, { method: "PATCH", body: { status: "completed" } });
     huntStatus.value = "completed";
+    completedAt.value = res.hunt?.completedAt ?? new Date().toISOString();
     showEndModal.value = false;
   } catch (e: any) {
     error.value = e?.data?.message || e?.message || "Failed to end hunt";
@@ -800,6 +802,7 @@ async function loadHunt() {
     hunterCode.value = h.hunterCode;
     huntStatus.value = h.status;
     startedAt.value = h.startedAt ?? null;
+    completedAt.value = h.completedAt ?? null;
 
     // Track saved location for change detection
     savedLat.value = lat.value;

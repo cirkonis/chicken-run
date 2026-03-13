@@ -31,7 +31,7 @@
           <div class="flex flex-col gap-1">
             <div class="flex items-center gap-2.5 flex-wrap">
               <h1 class="m-0 text-2xl text-accent-dark">🐔 {{ hunt.name }}</h1>
-              <HuntTimer v-if="hunt.startedAt" :started-at="hunt.startedAt" />
+              <HuntTimer v-if="hunt.startedAt" :started-at="hunt.startedAt" :ended-at="hunt.completedAt" />
             </div>
             <span class="text-sm text-text-muted italic">
               Playing as <strong>{{ auth.state.user?.displayName || 'Unknown' }}</strong> · Chicken

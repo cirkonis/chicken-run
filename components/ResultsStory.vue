@@ -55,14 +55,21 @@
         <!-- Photo -->
         <div v-if="getImageUrl(item)" class="px-3 pb-2 relative group">
           <img
+            v-if="!failedImages.has(item.key)"
             :src="getImageUrl(item)!"
             alt="Photo"
             class="w-full rounded-xl object-cover max-h-[360px] cursor-pointer"
             loading="lazy"
             @click="fullImageUrl = getImageUrl(item)!"
+            @error="onImageError(item.key)"
           />
+          <div
+            v-else
+            class="w-full h-[120px] rounded-xl bg-bg border-2 border-dashed border-border flex items-center justify-center text-text-muted text-xs"
+          >Photo unavailable — try refreshing</div>
           <!-- Save button -->
           <button
+            v-if="!failedImages.has(item.key)"
             type="button"
             class="absolute bottom-4 right-5 w-9 h-9 flex items-center justify-center bg-black/50 text-white rounded-full border-0 cursor-pointer backdrop-blur-sm transition-opacity"
             style="opacity: 0.85"
@@ -128,6 +135,11 @@ const props = defineProps<{
 }>();
 
 const fullImageUrl = ref<string | null>(null);
+const failedImages = ref(new Set<string>());
+
+function onImageError(key: string) {
+  failedImages.value = new Set([...failedImages.value, key]);
+}
 
 // ── Timeline ──────────────────────────────────────────
 

@@ -4,7 +4,7 @@
  */
 
 const BUCKET = "hunt-media";
-const SIGNED_URL_TTL = 3600; // 1 hour
+const SIGNED_URL_TTL = 14400; // 4 hours
 
 /** Max storage per hunt (50MB) */
 export const MAX_HUNT_STORAGE_BYTES = 50 * 1024 * 1024;

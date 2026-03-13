@@ -34,7 +34,7 @@ BEGIN
     -- Get hunt name (allow active and completed)
     SELECT h.name INTO v_hunt
     FROM public.hunts h
-    WHERE h.id = v_team.hunt_id AND h.status IN ('active', 'completed');
+    WHERE h.id = v_team.hunt_id AND h.status IN ('preparing', 'active', 'completed');
 
     IF v_hunt IS NULL THEN
       RETURN jsonb_build_object('error', 'Hunt is not active');
@@ -76,7 +76,7 @@ BEGIN
   SELECT h.id, h.name
   INTO v_hunt
   FROM public.hunts h
-  WHERE h.chicken_code = upper(p_code) AND h.status IN ('active', 'completed');
+  WHERE h.chicken_code = upper(p_code) AND h.status IN ('preparing', 'active', 'completed');
 
   IF v_hunt IS NOT NULL THEN
     SELECT coalesce(jsonb_agg(
@@ -138,7 +138,7 @@ BEGIN
   FROM public.hunt_teams ht
   JOIN public.hunts h ON h.id = ht.hunt_id
   WHERE ht.join_code = upper(p_code)
-    AND h.status IN ('active', 'completed');
+    AND h.status IN ('preparing', 'active', 'completed');
 
   IF v_hunt_id IS NOT NULL THEN
     -- Set role based on is_chicken flag
@@ -163,7 +163,7 @@ BEGIN
   -- 2. Fall back to hunt-level hunter_code
   SELECT id, name INTO v_hunt_id, v_hunt_name
   FROM public.hunts
-  WHERE hunter_code = upper(p_code) AND status IN ('active', 'completed');
+  WHERE hunter_code = upper(p_code) AND status IN ('preparing', 'active', 'completed');
 
   IF v_hunt_id IS NOT NULL THEN
     v_role := 'hunter';
@@ -195,7 +195,7 @@ BEGIN
   -- 3. Fall back to hunt-level chicken_code (backward compat)
   SELECT id, name INTO v_hunt_id, v_hunt_name
   FROM public.hunts
-  WHERE chicken_code = upper(p_code) AND status IN ('active', 'completed');
+  WHERE chicken_code = upper(p_code) AND status IN ('preparing', 'active', 'completed');
 
   IF v_hunt_id IS NOT NULL THEN
     v_role := 'chicken';
