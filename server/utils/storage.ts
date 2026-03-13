@@ -64,7 +64,10 @@ export async function getSignedImageUrls(
     .from(BUCKET)
     .createSignedUrls(paths, SIGNED_URL_TTL);
 
-  if (error || !data) return new Map();
+  if (error || !data) {
+    console.error("[storage] Failed to create signed URLs:", error?.message, "paths:", paths.length);
+    return new Map();
+  }
 
   const map = new Map<string, string>();
   data.forEach((item) => {
@@ -72,6 +75,11 @@ export async function getSignedImageUrls(
       map.set(item.path, item.signedUrl);
     }
   });
+
+  if (map.size < paths.length) {
+    console.warn(`[storage] Only ${map.size}/${paths.length} signed URLs generated`);
+  }
+
   return map;
 }
 
