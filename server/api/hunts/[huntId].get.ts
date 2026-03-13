@@ -1,5 +1,5 @@
 import { defineEventHandler, getRouterParam, createError } from "h3";
-import { getUserClient } from "../../utils/supabase";
+import { getUserClient, getAdminClient } from "../../utils/supabase";
 import { getSignedImageUrls } from "../../utils/storage";
 
 // GET /api/hunts/:huntId — get a single hunt with bars, hints, participants, teams
@@ -26,43 +26,48 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  // Use admin client for child-table queries so the hunt creator (who is NOT
+  // in hunt_participants) can still read all data.  Access is already verified
+  // above via the RLS-scoped hunt fetch.
+  const admin = getAdminClient();
+
   // Fetch bars, hints, participants, teams, chickens, expenses, arrivals, check-ins in parallel
   const [barsResult, hintsResult, participantsResult, teamsResult, chickensResult, expensesResult, arrivalsResult, checkInsResult] = await Promise.all([
-    supabase
+    admin
       .from("hunt_bars")
       .select("*")
       .eq("hunt_id", huntId)
       .order("name"),
-    supabase
+    admin
       .from("hints")
       .select("id, text, author_id, created_at, image_path")
       .eq("hunt_id", huntId)
       .order("created_at", { ascending: false }),
-    supabase
+    admin
       .from("hunt_participants")
       .select("user_id, role, joined_at, team_id, profiles(display_name, avatar_url), hunt_teams(name)")
       .eq("hunt_id", huntId),
-    supabase
+    admin
       .from("hunt_teams")
       .select("*, hunt_team_members(*)")
       .eq("hunt_id", huntId)
       .order("display_order"),
-    supabase
+    admin
       .from("hunt_chickens")
       .select("*")
       .eq("hunt_id", huntId)
       .order("created_at"),
-    supabase
+    admin
       .from("hunt_expenses")
       .select("*")
       .eq("hunt_id", huntId)
       .order("created_at", { ascending: false }),
-    supabase
+    admin
       .from("hunt_arrivals")
       .select("*, hunt_teams(name)")
       .eq("hunt_id", huntId)
       .order("arrived_at"),
-    supabase
+    admin
       .from("hunt_check_ins")
       .select("*, with_team:hunt_teams!hunt_check_ins_with_team_id_fkey(name)")
       .eq("hunt_id", huntId)

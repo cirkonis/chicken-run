@@ -7,7 +7,7 @@
     >
       <div class="bg-surface rounded-[20px] p-7 w-[340px] max-w-[90vw] shadow-[0_16px_48px_rgba(0,0,0,0.2)] text-center">
         <div class="text-lg font-bold mb-2">{{ title }}</div>
-        <p class="text-sm text-text-muted mb-5 leading-relaxed">{{ message }}</p>
+        <p class="text-sm text-text-muted mb-5 leading-relaxed" v-html="message"></p>
         <div class="flex gap-2.5 justify-center">
           <button
             class="px-5 py-2.5 border-2 border-border rounded-xl cursor-pointer bg-surface text-text-muted font-semibold text-sm transition-all hover:border-accent hover:text-accent"

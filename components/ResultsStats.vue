@@ -69,25 +69,16 @@
         </div>
       </div>
 
-      <!-- Bars checked -->
+      <!-- Bars & Drinks -->
       <div class="bg-surface border-2 border-border rounded-[18px] p-4 text-center">
         <div class="text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-1">Bars checked</div>
         <div class="text-2xl font-bold text-accent-dark">{{ barsChecked }}</div>
-        <div class="text-xs text-text-muted">of {{ bars.length }} bars</div>
-      </div>
-
-      <!-- Drinks consumed -->
-      <div class="bg-surface border-2 border-border rounded-[18px] p-4 text-center">
-        <div class="text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-1">Drinks consumed</div>
-        <div class="text-2xl font-bold text-accent-dark">~{{ totalDrinks }}</div>
-        <div class="text-xs text-text-muted">estimated</div>
-      </div>
-
-      <!-- Check-ins -->
-      <div class="bg-surface border-2 border-border rounded-[18px] p-4 text-center">
-        <div class="text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-1">Check-ins</div>
-        <div class="text-2xl font-bold text-accent-dark">{{ checkIns.length }}</div>
-        <div class="text-xs text-text-muted">bar visits logged</div>
+        <div class="text-xs text-text-muted mb-2">of {{ bars.length }} bars</div>
+        <div class="border-t border-border pt-2">
+          <div class="text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-1">Hunter drinks consumed</div>
+          <div class="text-lg font-bold text-accent-dark">~{{ totalDrinks }}</div>
+          <div class="text-xs text-text-muted">estimated</div>
+        </div>
       </div>
     </div>
 
@@ -232,11 +223,19 @@ const totalDrinks = computed(() => {
   for (const t of props.teams) {
     teamSizeMap.set(t.id, t.members?.length ?? 1);
   }
-  return props.checkIns.reduce((sum, ci) => {
-    const teamCount = ci.teamId ? (teamSizeMap.get(ci.teamId) ?? 1) : 1;
-    const withCount = ci.withTeamId ? (teamSizeMap.get(ci.withTeamId) ?? 0) : 0;
-    return sum + teamCount + withCount;
-  }, 0);
+  // If we have check-in records, use them for accuracy
+  if (props.checkIns.length > 0) {
+    return props.checkIns.reduce((sum, ci) => {
+      const teamCount = ci.teamId ? (teamSizeMap.get(ci.teamId) ?? 1) : 1;
+      const withCount = ci.withTeamId ? (teamSizeMap.get(ci.withTeamId) ?? 0) : 0;
+      return sum + teamCount + withCount;
+    }, 0);
+  }
+  // Fallback: estimate from visited bars × hunter count
+  const hunterCount = props.teams
+    .filter((t) => !t.isChicken)
+    .reduce((sum, t) => sum + (t.members?.length ?? 1), 0);
+  return barsChecked.value * Math.max(hunterCount, 1);
 });
 
 // ── Lookup helpers ────────────────────────────────────
