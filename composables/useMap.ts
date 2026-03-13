@@ -26,11 +26,13 @@ export function useMap() {
     onMarkerClickCb = cb;
   }
 
-  /** Create (or re-center) the map inside `el`. */
+  /** Create (or re-center) the map inside `el`.
+   *  If `coopBar` is provided, the chicken emoji is placed at the coop location instead of center. */
   function initMap(
     el: HTMLElement,
     center: { lat: number; lng: number },
-    radius: number
+    radius: number,
+    coopBar?: { lat: number; lng: number } | null
   ) {
     if (!$L) return;
 
@@ -63,9 +65,11 @@ export function useMap() {
       className: "chicken-icon",
     });
 
-    centerMarker = $L.marker([center.lat, center.lng], { icon: chickenIcon })
+    const chickenPos = coopBar ? [coopBar.lat, coopBar.lng] : [center.lat, center.lng];
+    const chickenLabel = coopBar ? "The Coop" : "Hunt center";
+    centerMarker = $L.marker(chickenPos as [number, number], { icon: chickenIcon })
       .addTo(map)
-      .bindPopup("Hunt center");
+      .bindPopup(chickenLabel);
 
     // Search radius circle
     circleOverlay = $L.circle([center.lat, center.lng], {

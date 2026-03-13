@@ -22,6 +22,7 @@ export function useChicken(huntId: string) {
   const arrivals = ref<HuntArrival[]>([]);
   const bars = ref<HuntBar[]>([]);
   const checkIns = ref<HuntCheckIn[]>([]);
+  const selectedBarId = ref<string | null>(null);
 
   // UI state
   const showHintInput = ref(false);
@@ -68,6 +69,9 @@ export function useChicken(huntId: string) {
       arrivals.value = res.arrivals || [];
       bars.value = res.bars || [];
       checkIns.value = res.checkIns || [];
+      // Extract coop selection from the chicken team
+      const chickenTeam = (res.teams || []).find((t: any) => t.isChicken);
+      if (chickenTeam?.selectedBarId) selectedBarId.value = chickenTeam.selectedBarId;
       pageLoading.value = false;
     } catch (e: any) {
       error.value = e?.data?.message || e?.message || "Failed to load hunt";
@@ -192,6 +196,18 @@ export function useChicken(huntId: string) {
     }
   }
 
+  // ── Coop selection ────────────────────────────────────
+  async function selectCoop(barId: string) {
+    const chickenTeam = teams.value.find((t) => t.isChicken);
+    if (!chickenTeam) throw new Error("No chicken team found");
+
+    await auth.authFetch(`/api/hunts/${huntId}/select-coop`, {
+      method: "POST",
+      body: { teamId: chickenTeam.id, barId },
+    });
+    selectedBarId.value = barId;
+  }
+
   // ── Polling (30s background refresh) ───────────────────
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -215,6 +231,10 @@ export function useChicken(huntId: string) {
       // Merge bars & check-ins
       bars.value = res.bars || [];
       checkIns.value = res.checkIns || [];
+
+      // Sync coop selection
+      const chickenTeam = (res.teams || []).find((t: any) => t.isChicken);
+      if (chickenTeam?.selectedBarId) selectedBarId.value = chickenTeam.selectedBarId;
 
       // Update hunt (budget might have changed)
       if (res.hunt) {
@@ -264,6 +284,7 @@ export function useChicken(huntId: string) {
     newHint,
     hintUploading,
     arrivalUploading,
+    selectedBarId,
 
     // Computed
     isCreator,
@@ -281,6 +302,7 @@ export function useChicken(huntId: string) {
     deleteExpense,
     addArrival,
     deleteArrival,
+    selectCoop,
     formatTime,
 
     // Polling

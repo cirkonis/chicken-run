@@ -33,6 +33,7 @@ export interface Team {
   isChicken: boolean;
   displayOrder: number;
   joinCode?: string;
+  selectedBarId?: string | null;
   createdAt: string;
   members?: TeamMember[];
 }

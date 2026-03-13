@@ -14,6 +14,13 @@
       >Go back</button>
     </div>
 
+    <!-- Coop picker gate — must select bar before seeing chicken page -->
+    <CoopPicker
+      v-else-if="hunt && !selectedBarId"
+      :bars="bars"
+      @selected="onCoopSelected"
+    />
+
     <template v-else-if="hunt">
       <header class="mb-4">
         <div class="flex items-start justify-between gap-3 mb-3">
@@ -454,10 +461,12 @@ const {
   pageLoading, error,
   hunt, hints, expenses, arrivals, bars, checkIns, teams,
   newHint, hintUploading, arrivalUploading,
+  selectedBarId,
   isCreator,
   budgetTotal, budgetSpent, budgetRemaining, budgetPercent,
   unarrivedTeams,
   loadHunt, addHint, deleteHint, addExpense, deleteExpense, addArrival, deleteArrival,
+  selectCoop,
   formatTime,
   startPolling, stopPolling,
 } = useChicken(huntId);
@@ -600,6 +609,15 @@ function ordinal(n: number): string {
   if (n === 2) return "2nd";
   if (n === 3) return "3rd";
   return `${n}th`;
+}
+
+// ── Coop selection ──────────────────────────────────
+async function onCoopSelected(barId: string) {
+  try {
+    await selectCoop(barId);
+  } catch (e: any) {
+    error.value = e?.data?.message || e?.message || "Failed to select coop";
+  }
 }
 
 // ── Navigation ──────────────────────────────────────────

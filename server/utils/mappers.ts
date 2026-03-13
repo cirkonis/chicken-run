@@ -90,6 +90,7 @@ export function mapTeam(row: Record<string, any>): Team {
     isChicken: row.is_chicken ?? false,
     displayOrder: row.display_order,
     joinCode: row.join_code,
+    selectedBarId: row.selected_bar_id ?? null,
     createdAt: row.created_at,
     members: row.hunt_team_members?.map(mapTeamMember),
   };

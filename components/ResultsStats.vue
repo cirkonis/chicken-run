@@ -3,7 +3,14 @@
     <!-- Where were the chickens hiding? -->
     <section class="bg-[#fff8e1] border-2 border-chicken-yellow rounded-[18px] p-5">
       <h3 class="m-0 mb-2 text-base">Where were the chickens hiding?</h3>
-      <p class="text-sm text-text-muted m-0 italic">Coming soon — the chickens will be able to pick their coop!</p>
+      <div v-if="coopBar" class="flex items-center gap-3 px-3 py-2.5 bg-white/60 rounded-xl border border-chicken-yellow/40">
+        <span class="text-2xl">🐔</span>
+        <div>
+          <div class="font-bold text-sm">{{ coopBar.name }}</div>
+          <div class="text-xs text-text-muted">{{ coopBar.address }}</div>
+        </div>
+      </div>
+      <p v-else class="text-sm text-text-muted m-0 italic">The chickens never picked a coop!</p>
     </section>
 
     <!-- When they were found -->
@@ -136,13 +143,25 @@
         >{{ barsOpen ? 'Hide' : `Show all (${barsChecked})` }}</button>
       </div>
       <div v-show="barsOpen" class="mt-3 flex flex-col gap-2">
+        <!-- Coop bar (if not already in visited bars) -->
+        <div
+          v-if="coopBar && coopBar.checkStatus !== 'checked'"
+          class="px-3 py-2.5 rounded-xl border border-chicken-yellow/40 bg-[#fff8e1]"
+        >
+          <div class="flex items-center gap-2">
+            <span class="font-semibold text-sm flex-1 truncate">🐔 {{ coopBar.name }}</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded text-amber-700 bg-chicken-yellow/20">The Coop</span>
+          </div>
+          <div class="text-xs text-text-muted mt-1">{{ coopBar.address }}</div>
+        </div>
         <div
           v-for="bar in visitedBars"
           :key="bar.id"
           class="px-3 py-2.5 rounded-xl border border-green/40 bg-[#f0faf4]"
         >
           <div class="flex items-center gap-2">
-            <span class="font-semibold text-sm flex-1 truncate">{{ bar.name }}</span>
+            <span class="font-semibold text-sm flex-1 truncate">{{ coopBar?.id === bar.id ? '🐔 ' : '' }}{{ bar.name }}</span>
+            <span v-if="coopBar?.id === bar.id" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded text-amber-700 bg-chicken-yellow/20">The Coop</span>
             <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded text-green bg-green/10">Visited</span>
           </div>
           <!-- Who checked in here -->
@@ -190,6 +209,11 @@ const sortedArrivals = computed(() =>
 );
 
 const chickenTeam = computed(() => props.teams.find((t) => t.isChicken));
+const coopBar = computed(() => {
+  const barId = chickenTeam.value?.selectedBarId;
+  if (!barId) return null;
+  return props.bars.find((b) => b.id === barId) ?? null;
+});
 const chickenMembers = computed(() => chickenTeam.value?.members || []);
 const hunterTeams = computed(() => props.teams.filter((t) => !t.isChicken));
 
@@ -282,10 +306,12 @@ function ordinal(n: number): string {
 onMounted(() => {
   nextTick(() => {
     if (mapEl.value && props.hunt) {
+      const coop = coopBar.value;
       initMap(
         mapEl.value,
         { lat: props.hunt.centerLat, lng: props.hunt.centerLng },
-        props.hunt.radiusMeters
+        props.hunt.radiusMeters,
+        coop ? { lat: coop.lat, lng: coop.lng } : null
       );
       // Show only visited bars on the results map
       paintMarkers(visitedBars.value);
