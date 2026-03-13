@@ -18,7 +18,7 @@
     <template v-else>
       <header class="mb-6">
         <NuxtLink to="/dashboard" class="text-[13px] text-accent no-underline font-semibold hover:underline">← Dashboard</NuxtLink>
-        <h1 class="mt-1 mb-0 text-2xl text-accent-dark">✏️ Manage Hunt</h1>
+        <h1 class="mt-1 mb-0 text-2xl text-accent-dark">🐔 Manage Hunt</h1>
         <p class="text-text-muted text-sm mt-1">Update your hunt, manage teams, and get ready to go.</p>
 
         <!-- Status badge + Start button -->

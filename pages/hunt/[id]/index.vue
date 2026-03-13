@@ -15,10 +15,13 @@
     </div>
 
     <template v-else-if="hunt">
+      <div class="flex justify-between items-center mb-1">
+        <button class="bg-transparent border-none text-accent font-semibold text-[13px] cursor-pointer p-0 hover:underline" @click="goBack" title="Back">← Back</button>
+        <InfoButton @click="showGuide = true" />
+      </div>
       <header class="mb-4">
         <div class="flex items-start justify-between gap-3 mb-3">
           <div class="flex flex-col gap-1">
-            <button class="self-start bg-transparent border-none text-accent font-semibold text-[13px] cursor-pointer p-0 mb-1 hover:underline" @click="goBack" title="Back">← Back</button>
             <div class="flex items-center gap-2.5 flex-wrap">
               <h1 class="m-0 text-2xl text-accent-dark">🐔 {{ hunt.name }}</h1>
               <HuntTimer v-if="hunt.startedAt" :started-at="hunt.startedAt" />
@@ -337,6 +340,7 @@
       </Teleport>
     </template>
 
+    <GameGuide v-model="showGuide" />
   </div>
 </template>
 
@@ -347,6 +351,7 @@ const route = useRoute();
 const router = useRouter();
 const auth = useAuth();
 const huntId = route.params.id as string;
+const showGuide = ref(false);
 
 // ── Composables ──────────────────────────────────────────
 const {

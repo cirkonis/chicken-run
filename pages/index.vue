@@ -5,7 +5,10 @@
 
     <template v-else>
       <!-- ─── Hero: Join a Hunt ─────────────────────────── -->
-      <div class="text-center pt-8 pb-2">
+      <div class="flex justify-end pt-4 pb-0">
+        <InfoButton @click="showGuide = true" />
+      </div>
+      <div class="text-center pb-2">
         <h1 class="m-0 text-4xl text-accent-dark">🐔 The <s>great</s> drunk chicken hunt</h1>
         <p class="text-text-muted text-[15px] mt-1.5">The chickens are hiding. Find them before the money runs out.</p>
       </div>
@@ -131,11 +134,14 @@
       </div>
 
     </template>
+
+    <GameGuide v-model="showGuide" />
   </div>
 </template>
 
 <script setup lang="ts">
 const auth = useAuth();
+const showGuide = ref(false);
 const router = useRouter();
 const { signInWithGoogle } = useSupabaseClient();
 
