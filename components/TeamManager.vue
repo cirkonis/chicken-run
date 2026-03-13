@@ -91,7 +91,7 @@
             <button
               type="button"
               class="w-8 h-8 flex items-center justify-center border-2 border-chicken-yellow rounded-lg bg-white text-sm font-bold cursor-pointer transition-all hover:border-accent hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed"
-              :disabled="chickenCount <= 0"
+              :disabled="chickenCount <= 2"
               @click="chickenCount--"
             >−</button>
             <span class="text-sm font-semibold min-w-[24px] text-center">{{ chickenCount }}</span>
@@ -294,10 +294,13 @@ const maxChickenCount = computed(() =>
   Math.max(0, validMemberCount.value - 2)
 );
 
-// Clamp chicken count when member count shrinks
+// Clamp chicken count when member count shrinks (min 2)
 watch(maxChickenCount, (max) => {
   if (chickenCount.value > max) {
-    chickenCount.value = max;
+    chickenCount.value = Math.max(2, max);
+  }
+  if (chickenCount.value < 2) {
+    chickenCount.value = 2;
   }
 });
 

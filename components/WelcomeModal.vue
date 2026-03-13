@@ -6,7 +6,7 @@
       @click.self="$emit('update:modelValue', false)"
     >
       <div class="bg-surface rounded-[20px] p-7 max-w-[520px] w-[340px] max-w-[90vw] shadow-[0_16px_48px_rgba(0,0,0,0.2)] text-left">
-        <div class="text-lg font-bold mb-4">🐔 Welcome to the Chicken Run!</div>
+        <div class="text-lg font-bold mb-4">🐔 Welcome to the Chicken Hunt!</div>
         <div class="my-4">
           <p class="mb-4 text-sm leading-relaxed">The hunt is on! Two sneaky chickens are hiding in a bar. Your mission: find them before the money is gone.</p>
           <div class="flex gap-3 p-3 bg-bg rounded-xl mb-2.5 border-2 border-border">
