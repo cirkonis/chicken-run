@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
     .single();
 
   const teamHuntStatus = (teamMatch as any)?.hunts?.status;
-  if (teamMatch && (teamHuntStatus === "active" || teamHuntStatus === "preparing")) {
+  if (teamMatch && (teamHuntStatus === "active" || teamHuntStatus === "preparing" || teamHuntStatus === "completed")) {
     huntId = teamMatch.hunt_id;
     joiningAs = "hunter";
 
@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
       .from("hunts")
       .select("id, name")
       .eq("chicken_code", code)
-      .in("status", ["active", "preparing"])
+      .in("status", ["active", "preparing", "completed"])
       .single();
 
     if (chickenMatch) {
@@ -85,7 +85,7 @@ export default defineEventHandler(async (event) => {
         .from("hunts")
         .select("id, name")
         .eq("hunter_code", code)
-        .in("status", ["active", "preparing"])
+        .in("status", ["active", "preparing", "completed"])
         .single();
 
       if (hunterMatch) {

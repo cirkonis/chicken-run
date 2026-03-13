@@ -617,8 +617,23 @@ onMounted(async () => {
   }
 
   await loadHunt();
+
+  // Redirect if hunt is already completed
+  if (hunt.value?.status === 'completed') {
+    navigateTo(`/hunt/${huntId}/results`);
+    return;
+  }
+
   seenCheckInCount.value = checkIns.value.length;
   startPolling();
+});
+
+// Redirect when hunt ends mid-game (detected via polling)
+watch(() => hunt.value?.status, (status) => {
+  if (status === 'completed') {
+    stopPolling();
+    navigateTo(`/hunt/${huntId}/results`);
+  }
 });
 
 onUnmounted(() => {

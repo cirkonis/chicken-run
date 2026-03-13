@@ -49,6 +49,11 @@
       >
         Manage Hunt →
       </NuxtLink>
+      <NuxtLink
+        v-if="hunt.status === 'completed'"
+        :to="`/hunt/${hunt.id}/results`"
+        class="px-4 py-2.5 border-2 border-green rounded-xl text-green font-semibold text-sm no-underline transition-all hover:bg-green hover:text-white"
+      >View Results</NuxtLink>
       <button
         v-if="hunt.status === 'preparing'"
         type="button"
