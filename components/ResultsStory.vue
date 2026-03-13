@@ -64,10 +64,13 @@
           <!-- Save button -->
           <button
             type="button"
-            class="absolute bottom-4 right-5 px-3 py-1.5 bg-black/60 text-white text-xs font-semibold rounded-lg border-0 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
-            style="opacity: 0.8"
+            class="absolute bottom-4 right-5 w-9 h-9 flex items-center justify-center bg-black/50 text-white rounded-full border-0 cursor-pointer backdrop-blur-sm transition-opacity"
+            style="opacity: 0.85"
+            title="Download photo"
             @click.stop="downloadImage(getImageUrl(item)!, `hunt-${item.type}-${item.key}.jpg`)"
-          >Save</button>
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </button>
         </div>
 
         <!-- Note text -->
@@ -92,11 +95,16 @@
         @click="fullImageUrl = null"
       >
         <img :src="fullImageUrl" class="max-w-full max-h-full object-contain rounded-lg" />
-        <button
-          type="button"
-          class="absolute bottom-6 left-1/2 -translate-x-1/2 px-5 py-2 bg-white text-accent-dark font-semibold text-sm rounded-xl border-0 cursor-pointer shadow-lg"
-          @click.stop="downloadImage(fullImageUrl!, 'hunt-photo.jpg'); fullImageUrl = null"
-        >Save Photo</button>
+        <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+          <button
+            type="button"
+            class="w-12 h-12 flex items-center justify-center bg-white text-accent-dark rounded-full border-0 cursor-pointer shadow-lg"
+            @click.stop="downloadImage(fullImageUrl!, 'hunt-photo.jpg'); fullImageUrl = null"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </button>
+          <span class="text-white/50 text-[11px]">Long-press photo to save to camera roll</span>
+        </div>
       </div>
     </Teleport>
   </div>

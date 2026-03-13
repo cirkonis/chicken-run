@@ -201,7 +201,6 @@
                     ref="fileInput"
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     class="hidden"
                     @change="onFileSelected"
                   />
@@ -352,7 +351,6 @@
                       ref="arrivalFileInput"
                       type="file"
                       accept="image/*"
-                      capture="environment"
                       class="hidden"
                       @change="onArrivalFileSelected"
                     />

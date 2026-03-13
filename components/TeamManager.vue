@@ -66,18 +66,22 @@
         <!-- Team size selector -->
         <div>
           <h3 class="text-sm font-semibold m-0 mb-2">Team Size</h3>
-          <div class="flex gap-2">
+          <div class="flex items-center gap-2">
             <button
-              v-for="size in sizes"
-              :key="size"
               type="button"
-              class="px-4 py-2 border-2 rounded-xl text-sm font-semibold cursor-pointer transition-all"
-              :class="teamSize === size
-                ? 'border-accent bg-accent text-white'
-                : 'border-border bg-bg text-text-muted hover:border-accent hover:text-accent'"
-              @click="teamSize = size"
-            >{{ size === 2 ? 'Pairs (2)' : `Teams of ${size}` }}</button>
+              class="w-8 h-8 flex items-center justify-center border-2 border-accent rounded-lg bg-white text-sm font-bold cursor-pointer transition-all hover:bg-accent hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+              :disabled="teamSize <= 2"
+              @click="teamSize--"
+            >−</button>
+            <span class="text-sm font-semibold min-w-[24px] text-center">{{ teamSize }}</span>
+            <button
+              type="button"
+              class="w-8 h-8 flex items-center justify-center border-2 border-accent rounded-lg bg-white text-sm font-bold cursor-pointer transition-all hover:bg-accent hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+              :disabled="teamSize >= 5"
+              @click="teamSize++"
+            >+</button>
           </div>
+          <p class="text-[11px] text-text-muted m-0 mt-1">Players per team</p>
         </div>
 
         <!-- Chicken count selector -->
@@ -277,8 +281,7 @@ const mode = ref<Mode>(props.modelValue.length > 0 ? "full" : "picker");
 
 // ── Quick Setup state ─────────────────────────────────────
 const rosterMembers = ref<TeamMemberInput[]>([{ name: "" }]);
-const sizes = [2, 3, 4] as const;
-const teamSize = ref<2 | 3 | 4>(2);
+const teamSize = ref(2);
 const chickenCount = ref(2);
 const generatedTeams = ref<TeamData[]>([]);
 const hasGenerated = ref(false);
