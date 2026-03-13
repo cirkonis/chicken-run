@@ -182,7 +182,7 @@
                 </div>
               </template>
               <!-- Locked notice (when not preparing) -->
-              <p v-else class="text-xs text-text-muted m-0">Location is locked while the hunt is running.</p>
+              <p v-else class="text-xs text-text-muted m-0">Location locked after the hunt was started.</p>
 
               <!-- Single map container — always rendered so Leaflet keeps its DOM -->
               <div class="rounded-xl overflow-hidden border-2 transition-colors relative z-0" :class="pickingMode ? 'border-accent' : 'border-border'">
@@ -348,7 +348,6 @@
               @click="showEndModal = true"
             >End Hunt</button>
             <button
-              v-if="huntStatus === 'preparing'"
               type="button"
               class="px-5 py-2.5 border-2 border-red rounded-xl bg-surface text-red font-semibold text-sm cursor-pointer transition-all hover:bg-red hover:text-white"
               @click="showDeleteModal = true"
