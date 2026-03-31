@@ -139,3 +139,27 @@ export async function deleteHintImage(imagePath: string): Promise<void> {
   const admin = getAdminClient();
   await admin.storage.from(BUCKET).remove([imagePath]);
 }
+
+/**
+ * Delete all media files for the given hunt IDs from storage.
+ * Removes files from hints/, arrivals/, and check-ins/ folders per hunt.
+ * Must be called BEFORE deleting hunts (needs DB records to find file paths).
+ */
+export async function deleteHuntMedia(huntIds: string[]): Promise<void> {
+  if (!huntIds.length) return;
+  const admin = getAdminClient();
+
+  const folders = ["hints", "arrivals", "check-ins"];
+
+  for (const huntId of huntIds) {
+    for (const folder of folders) {
+      const prefix = `${folder}/${huntId}`;
+      const { data: files } = await admin.storage.from(BUCKET).list(prefix);
+
+      if (files && files.length > 0) {
+        const paths = files.map((f) => `${prefix}/${f.name}`);
+        await admin.storage.from(BUCKET).remove(paths);
+      }
+    }
+  }
+}

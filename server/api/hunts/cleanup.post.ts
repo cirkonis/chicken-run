@@ -1,6 +1,7 @@
 import { defineEventHandler, getHeader, createError } from "h3";
 import { getAdminClient } from "../../utils/supabase";
 import { deleteGuestUsersForHunts } from "../../utils/cleanupGuestUsers";
+import { deleteHuntMedia } from "../../utils/storage";
 
 const HUNT_TTL_DAYS = 90;
 
@@ -34,8 +35,9 @@ export default defineEventHandler(async (event) => {
 
   const huntIds = (expiredHunts || []).map((h) => h.id);
 
-  // Delete guest auth users BEFORE deleting hunts (need hunt_participants intact)
+  // Delete guest auth users and storage BEFORE deleting hunts
   const guestResult = await deleteGuestUsersForHunts(admin, huntIds);
+  await deleteHuntMedia(huntIds);
 
   // Now delete the hunts (cascades to hunt_participants, teams, etc.)
   const { data, error } = await admin

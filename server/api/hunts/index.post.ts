@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, createError } from "h3";
 import { getUserClient, getAdminClient } from "../../utils/supabase";
 import { deleteGuestUsersForHunts } from "../../utils/cleanupGuestUsers";
+import { deleteHuntMedia } from "../../utils/storage";
 import type { TeamInput } from "~/types";
 
 const MAX_HUNTS_PER_USER = 3;
@@ -43,6 +44,7 @@ export default defineEventHandler(async (event) => {
   const expiredIds = (expiredHunts || []).map((h) => h.id);
   if (expiredIds.length > 0) {
     await deleteGuestUsersForHunts(admin, expiredIds);
+    await deleteHuntMedia(expiredIds);
     await admin
       .from("hunts")
       .delete()

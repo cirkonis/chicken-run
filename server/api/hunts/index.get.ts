@@ -1,6 +1,7 @@
 import { defineEventHandler } from "h3";
 import { getUserClient, getAdminClient } from "../../utils/supabase";
 import { deleteGuestUsersForHunts } from "../../utils/cleanupGuestUsers";
+import { deleteHuntMedia } from "../../utils/storage";
 
 const HUNT_TTL_DAYS = 90;
 
@@ -24,6 +25,7 @@ export default defineEventHandler(async (event) => {
   const expiredIds = (expiredHunts || []).map((h) => h.id);
   if (expiredIds.length > 0) {
     await deleteGuestUsersForHunts(admin, expiredIds);
+    await deleteHuntMedia(expiredIds);
     await admin
       .from("hunts")
       .delete()

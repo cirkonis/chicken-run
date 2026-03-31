@@ -1,6 +1,7 @@
 import { defineEventHandler, getRouterParam, createError } from "h3";
 import { getUserClient, getAdminClient } from "../../utils/supabase";
 import { deleteGuestUsersForHunts } from "../../utils/cleanupGuestUsers";
+import { deleteHuntMedia } from "../../utils/storage";
 
 // DELETE /api/hunts/:huntId
 // Creator only — permanently deletes the hunt and all related data.
@@ -30,9 +31,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "Only the hunt creator can delete a hunt" });
   }
 
-  // Delete guest auth users BEFORE deleting the hunt (need hunt_participants intact)
+  // Clean up guest auth users and storage BEFORE deleting the hunt
   const admin = getAdminClient();
   await deleteGuestUsersForHunts(admin, [huntId]);
+  await deleteHuntMedia([huntId]);
 
   // Delete the hunt (cascades to all child tables)
   const { error: deleteError } = await supabase
