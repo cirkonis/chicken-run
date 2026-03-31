@@ -1,5 +1,6 @@
 import { defineEventHandler, getHeader, createError } from "h3";
 import { getAdminClient } from "../../utils/supabase";
+import { deleteGuestUsersForHunts } from "../../utils/cleanupGuestUsers";
 
 const HUNT_TTL_DAYS = 90;
 
@@ -17,6 +18,26 @@ export default defineEventHandler(async (event) => {
   const admin = getAdminClient();
   const ninetyDaysAgo = new Date(Date.now() - HUNT_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
+  // Find hunts that will be deleted
+  const { data: expiredHunts, error: findError } = await admin
+    .from("hunts")
+    .select("id")
+    .eq("status", "completed")
+    .lt("completed_at", ninetyDaysAgo);
+
+  if (findError) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: `Cleanup failed: ${findError.message}`,
+    });
+  }
+
+  const huntIds = (expiredHunts || []).map((h) => h.id);
+
+  // Delete guest auth users BEFORE deleting hunts (need hunt_participants intact)
+  const guestResult = await deleteGuestUsersForHunts(admin, huntIds);
+
+  // Now delete the hunts (cascades to hunt_participants, teams, etc.)
   const { data, error } = await admin
     .from("hunts")
     .delete()
@@ -31,5 +52,10 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  return { deleted: (data || []).length, ids: (data || []).map((h) => h.id) };
+  return {
+    deleted: (data || []).length,
+    ids: (data || []).map((h) => h.id),
+    guestsDeleted: guestResult.deleted,
+    guestErrors: guestResult.errors,
+  };
 });

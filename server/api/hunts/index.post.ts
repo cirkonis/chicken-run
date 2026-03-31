@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, createError } from "h3";
 import { getUserClient, getAdminClient } from "../../utils/supabase";
+import { deleteGuestUsersForHunts } from "../../utils/cleanupGuestUsers";
 import type { TeamInput } from "~/types";
 
 const MAX_HUNTS_PER_USER = 3;
@@ -30,12 +31,25 @@ export default defineEventHandler(async (event) => {
 
   // Clean up expired completed hunts for this user
   const ninetyDaysAgo = new Date(Date.now() - HUNT_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  await admin
+
+  // Find expired hunts first so we can clean up guest users
+  const { data: expiredHunts } = await admin
     .from("hunts")
-    .delete()
+    .select("id")
     .eq("creator_id", userId)
     .eq("status", "completed")
     .lt("completed_at", ninetyDaysAgo);
+
+  const expiredIds = (expiredHunts || []).map((h) => h.id);
+  if (expiredIds.length > 0) {
+    await deleteGuestUsersForHunts(admin, expiredIds);
+    await admin
+      .from("hunts")
+      .delete()
+      .eq("creator_id", userId)
+      .eq("status", "completed")
+      .lt("completed_at", ninetyDaysAgo);
+  }
 
   // Enforce hunt limit
   const { count } = await admin
