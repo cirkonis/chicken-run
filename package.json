@@ -10,7 +10,10 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@apollo/client": "^3.14.1",
     "@supabase/supabase-js": "^2.98.0",
+    "@vue/apollo-composable": "^4.2.2",
+    "graphql": "^16.14.2",
     "leaflet": "^1.9.4",
     "nuxt": "^3.21.0",
     "vue": "^3.5.27",

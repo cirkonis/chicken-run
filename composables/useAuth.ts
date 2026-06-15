@@ -247,5 +247,9 @@ export function useAuth() {
     isHost,
     isGuest,
     isLoggedIn,
+    // Exposed so the Apollo client (plugins/apollo.client.ts) can reuse the SAME
+    // token-refresh logic instead of forking its own. Keeps one auth system.
+    refreshAccessToken,
+    isTokenExpiringSoon,
   };
 }
