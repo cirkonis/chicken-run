@@ -19,13 +19,13 @@
 const props = defineProps<{ path?: string | null }>();
 
 const auth = useAuth();
+const { mediaUrl } = useMedia();
 const triedRefresh = ref(false);
 const cacheBust = ref(""); // appended to force <img> to refetch after a token refresh
 
 const src = computed(() => {
-  if (!props.path) return null;
-  const token = auth.state.accessToken || "";
-  return `/api/media/${props.path}?token=${encodeURIComponent(token)}${cacheBust.value}`;
+  const base = mediaUrl(props.path);
+  return base ? base + cacheBust.value : null;
 });
 
 async function onError() {

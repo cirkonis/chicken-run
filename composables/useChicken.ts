@@ -91,18 +91,16 @@ export function useChicken(huntId: string) {
     hintUploading.value = !!imageFile;
 
     try {
-      const formData = new FormData();
-      formData.append("text", text);
-
+      // Upload the photo (if any) straight to Storage, then post JSON.
+      let imagePath: string | null = null;
       if (imageFile) {
-        const { compressImage } = useImageCompression();
-        const compressed = await compressImage(imageFile);
-        formData.append("image", compressed, "hint.jpg");
+        const { uploadImage } = useMediaUpload();
+        imagePath = await uploadImage(huntId, "hints", imageFile);
       }
 
       const res = await auth.authFetch<any>(`/api/hunts/${huntId}/hints`, {
         method: "POST",
-        body: formData,
+        body: { text, imagePath },
       });
 
       hints.value.unshift({
@@ -111,7 +109,7 @@ export function useChicken(huntId: string) {
         authorId: res.hint.authorId,
         authorName: auth.state.user?.displayName || "The Chickens 🐔",
         createdAt: res.hint.createdAt,
-        imageUrl: res.hint.imageUrl || null,
+        imagePath: res.hint.imagePath || null,
       });
     } catch (e: any) {
       error.value = e?.data?.message || e?.message || "Failed to add hint";
@@ -163,19 +161,16 @@ export function useChicken(huntId: string) {
     arrivalUploading.value = !!imageFile;
 
     try {
-      const formData = new FormData();
-      formData.append("teamId", teamId);
-      formData.append("note", note);
-
+      // Upload the photo (if any) straight to Storage, then post JSON.
+      let imagePath: string | null = null;
       if (imageFile) {
-        const { compressImage } = useImageCompression();
-        const compressed = await compressImage(imageFile);
-        formData.append("image", compressed, "arrival.jpg");
+        const { uploadImage } = useMediaUpload();
+        imagePath = await uploadImage(huntId, "arrivals", imageFile);
       }
 
       const res = await auth.authFetch<any>(`/api/hunts/${huntId}/arrivals`, {
         method: "POST",
-        body: formData,
+        body: { teamId, note, imagePath },
       });
       arrivals.value.push(res.arrival);
     } catch (e: any) {
@@ -245,8 +240,12 @@ export function useChicken(huntId: string) {
     }
   }
 
+  // Live feed: realtime push (instant) folded in alongside polling (safety net).
+  const realtime = useHuntRealtime(huntId, () => poll());
+
   function startPolling() {
     pollTimer = setInterval(poll, POLL_INTERVAL);
+    realtime.start();
   }
 
   function stopPolling() {
@@ -254,6 +253,7 @@ export function useChicken(huntId: string) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
+    realtime.stop();
   }
 
   // ── Helpers ────────────────────────────────────────────

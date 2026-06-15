@@ -60,5 +60,7 @@ export function useSupabaseClient() {
     if (error) throw new Error(`Upload failed: ${error.message}`);
   }
 
-  return { signInWithGoogle, uploadToSignedUrl };
+  // getClient is exposed so useHuntRealtime can open a realtime channel on the
+  // same lazily-created client.
+  return { signInWithGoogle, uploadToSignedUrl, getClient };
 }

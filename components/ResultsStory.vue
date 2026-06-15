@@ -136,6 +136,7 @@ const props = defineProps<{
 
 const fullImageUrl = ref<string | null>(null);
 const failedImages = ref(new Set<string>());
+const { mediaUrl } = useMedia();
 
 function onImageError(key: string) {
   failedImages.value = new Set([...failedImages.value, key]);
@@ -200,10 +201,13 @@ function getTeamName(teamId: string | null): string {
 }
 
 function getImageUrl(item: TimelineItem): string | null {
-  if (item.type === "checkin") return item.data.imageUrl || null;
-  if (item.type === "arrival") return item.data.imageUrl || null;
-  if (item.type === "hint") return item.data.imageUrl || null;
-  return null;
+  // All three feed types now carry a storage path; build the private proxy URL.
+  const path =
+    item.type === "checkin" ? item.data.imagePath
+    : item.type === "arrival" ? item.data.imagePath
+    : item.type === "hint" ? item.data.imagePath
+    : null;
+  return mediaUrl(path);
 }
 
 function getNote(item: TimelineItem): string {

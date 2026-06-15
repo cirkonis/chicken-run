@@ -246,13 +246,13 @@
                     @click="pendingDeleteHintId = h.id; showDeleteHintConfirm = true"
                   >✕</button>
                 </div>
-                <img
-                  v-if="h.imageUrl"
-                  :src="h.imageUrl"
+                <MediaImage
+                  v-if="h.imagePath"
+                  :path="h.imagePath"
                   alt="Hint photo"
                   class="max-h-48 rounded-lg object-cover cursor-pointer border border-chicken-yellow/30"
                   loading="lazy"
-                  @click="fullImageUrl = h.imageUrl"
+                  @click="fullImagePath = h.imagePath"
                 />
               </li>
             </ul>
@@ -296,13 +296,13 @@
                   >✕</button>
                 </div>
                 <p v-if="a.note" class="text-sm text-text-muted m-0 pl-9">{{ a.note }}</p>
-                <img
-                  v-if="a.imageUrl"
-                  :src="a.imageUrl"
+                <MediaImage
+                  v-if="a.imagePath"
+                  :path="a.imagePath"
                   alt="Arrival photo"
                   class="max-h-48 rounded-lg object-cover cursor-pointer border border-border"
                   loading="lazy"
-                  @click="fullImageUrl = a.imageUrl"
+                  @click="fullImagePath = a.imagePath"
                 />
               </div>
             </div>
@@ -441,11 +441,11 @@
     <!-- Fullscreen image viewer -->
     <Teleport to="body">
       <div
-        v-if="fullImageUrl"
+        v-if="fullImagePath"
         class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] cursor-pointer p-4"
-        @click="fullImageUrl = null"
+        @click="fullImagePath = null"
       >
-        <img :src="fullImageUrl" class="max-w-full max-h-full object-contain rounded-lg" />
+        <MediaImage :path="fullImagePath" class="max-w-full max-h-full object-contain rounded-lg" />
       </div>
     </Teleport>
 
@@ -501,7 +501,7 @@ const arrivalsOpen = ref(true);
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedImage = ref<File | null>(null);
 const imagePreview = ref<string | null>(null);
-const fullImageUrl = ref<string | null>(null);
+const fullImagePath = ref<string | null>(null);
 
 function onFileSelected(e: Event) {
   const input = e.target as HTMLInputElement;

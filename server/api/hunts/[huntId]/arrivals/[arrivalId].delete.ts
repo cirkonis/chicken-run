@@ -1,6 +1,6 @@
 import { defineEventHandler, getRouterParam, createError } from "h3";
 import { getAdminClient } from "../../../../utils/supabase";
-import { deleteHintImage } from "../../../../utils/storage";
+import { deleteMediaFile } from "../../../../utils/storage";
 
 // DELETE /api/hunts/:huntId/arrivals/:arrivalId — remove an arrival
 // Uses admin client to bypass RLS; auth validated by middleware.
@@ -66,13 +66,10 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // ── Clean up storage if arrival had an image ────────────
-  // Removes the file from the bucket. storage_used_bytes is not decremented
-  // because we don't track per-file sizes — it's a soft quota so minor
-  // over-count is acceptable (the real disk space is freed).
+  // ── Clean up storage if the arrival had an image ────────
   if (arrival.image_path) {
     try {
-      await deleteHintImage(arrival.image_path);
+      await deleteMediaFile(arrival.image_path);
     } catch (cleanupErr: any) {
       // Non-fatal — arrival is already deleted
       console.error("Arrival image cleanup failed:", cleanupErr.message);
