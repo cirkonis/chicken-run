@@ -219,22 +219,17 @@ export function useHunt(huntId: string) {
     checkInUploading.value = !!imageFile;
 
     try {
-      const formData = new FormData();
-      formData.append("note", note);
-
+      // 1. Upload the photo straight to Storage (bytes never touch our server).
+      let imagePath: string | null = null;
       if (imageFile) {
-        const { compressImage } = useImageCompression();
-        const compressed = await compressImage(imageFile);
-        formData.append("image", compressed, "checkin.jpg");
+        const { uploadImage } = useMediaUpload();
+        imagePath = await uploadImage(huntId, "check-ins", imageFile);
       }
 
-      if (withTeamId) {
-        formData.append("withTeamId", withTeamId);
-      }
-
+      // 2. Record the check-in as plain JSON — just the path + metadata.
       const res = await auth.authFetch<any>(`/api/hunts/${huntId}/bars/${barId}/check-in`, {
         method: "POST",
-        body: formData,
+        body: { imagePath, note, withTeamId: withTeamId || null },
       });
 
       // Add check-in to local state

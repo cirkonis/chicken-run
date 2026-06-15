@@ -41,21 +41,21 @@
           <span v-else class="text-xs text-text-muted">📍 {{ getBarName(ci.barId) }}</span>
         </div>
 
-        <!-- Photo -->
-        <div v-if="ci.imageUrl" class="px-3 pb-2">
+        <!-- Photo (served privately via the /api/media proxy) -->
+        <div v-if="ci.imagePath" class="px-3 pb-2">
           <!-- Normal photo -->
-          <img
+          <MediaImage
             v-if="!isRedacted(ci)"
-            :src="ci.imageUrl"
+            :path="ci.imagePath"
             alt="Check-in photo"
             class="w-full rounded-xl object-cover max-h-[360px] cursor-pointer"
             loading="lazy"
-            @click="fullImageUrl = ci.imageUrl!"
+            @click="fullImagePath = ci.imagePath!"
           />
           <!-- Redacted photo (blurred) -->
           <div v-else class="relative overflow-hidden rounded-xl">
-            <img
-              :src="ci.imageUrl"
+            <MediaImage
+              :path="ci.imagePath"
               alt="Redacted photo"
               class="w-full rounded-xl object-cover max-h-[360px]"
               loading="lazy"
@@ -83,11 +83,11 @@
     <!-- Fullscreen image viewer -->
     <Teleport to="body">
       <div
-        v-if="fullImageUrl"
+        v-if="fullImagePath"
         class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] cursor-pointer p-4"
-        @click="fullImageUrl = null"
+        @click="fullImagePath = null"
       >
-        <img :src="fullImageUrl" class="max-w-full max-h-full object-contain rounded-lg" />
+        <MediaImage :path="fullImagePath" class="max-w-full max-h-full object-contain rounded-lg" />
       </div>
     </Teleport>
   </div>
@@ -103,7 +103,7 @@ const props = defineProps<{
   arrivals: HuntArrival[];
 }>();
 
-const fullImageUrl = ref<string | null>(null);
+const fullImagePath = ref<string | null>(null);
 
 // ── Chaos mode (triggered by team arrivals) ────────────
 const chaosMode = computed(() => props.arrivals.length > 0);

@@ -79,10 +79,13 @@ export default defineEventHandler(async (event) => {
   const mappedArrivals = (arrivalsResult.data || []).map(mapArrival);
   const mappedCheckIns = (checkInsResult.data || []).map(mapCheckIn);
 
+  // Check-ins now serve through the stable, private /api/media proxy, so they
+  // return the raw imagePath and the client builds the URL (see MediaImage.vue).
+  // Hints + arrivals still use signed URLs for now — they migrate to the proxy
+  // in a later increment.
   const allImagePaths = [
     ...mappedHints.map((h) => h.imagePath),
     ...mappedArrivals.map((a) => a.imagePath),
-    ...mappedCheckIns.map((c) => c.imagePath),
   ].filter((p): p is string => !!p);
 
   const signedUrls = await getSignedImageUrls(allImagePaths);
@@ -97,10 +100,7 @@ export default defineEventHandler(async (event) => {
     imageUrl: imagePath ? signedUrls.get(imagePath) || null : null,
   }));
 
-  const checkIns = mappedCheckIns.map(({ imagePath, ...checkIn }) => ({
-    ...checkIn,
-    imageUrl: imagePath ? signedUrls.get(imagePath) || null : null,
-  }));
+  const checkIns = mappedCheckIns; // includes imagePath; served via /api/media proxy
 
   return {
     hunt: mapHunt(hunt),

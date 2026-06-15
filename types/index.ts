@@ -159,6 +159,6 @@ export interface HuntCheckIn {
   withTeamName: string | null;
   userId: string;
   note: string;
-  imageUrl?: string | null;
+  imagePath?: string | null;
   createdAt: string;
 }

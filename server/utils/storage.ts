@@ -3,6 +3,8 @@
  * Uses the admin client (service role) to bypass storage RLS.
  */
 
+import { randomUUID } from "node:crypto";
+
 const BUCKET = "hunt-media";
 const SIGNED_URL_TTL = 14400; // 4 hours
 
@@ -162,4 +164,55 @@ export async function deleteHuntMedia(huntIds: string[]): Promise<void> {
       }
     }
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// NEW PHOTO PIPELINE — direct-to-storage uploads + stable private serving.
+//
+// Old approach (the upload*Image / getSignedImageUrl* helpers above, now being
+// phased out): the browser sent image bytes to our server, we uploaded them, and
+// we returned a 4-hour signed URL baked into the response. That dropped uploads
+// (Vercel's request-body limit) and the URLs expired mid-hunt.
+//
+// New approach: the browser uploads straight to Storage via a signed upload URL
+// (createMediaUploadUrl), and reads images back through the /api/media proxy,
+// which mints a fresh signed URL on every request (createMediaSignedUrl).
+// ════════════════════════════════════════════════════════════════════════════
+
+/** The three kinds of hunt media, matching the storage folder names. */
+export type MediaKind = "check-ins" | "hints" | "arrivals";
+
+/** Build a unique storage path for a new upload, e.g. "check-ins/<huntId>/<uuid>.jpg". */
+export function buildMediaPath(kind: MediaKind, huntId: string): string {
+  return `${kind}/${huntId}/${randomUUID()}.jpg`;
+}
+
+/**
+ * Create a one-time signed UPLOAD URL. The browser PUTs the image directly to
+ * this URL, so the bytes never touch our server (and never hit Vercel's limit).
+ */
+export async function createMediaUploadUrl(
+  path: string
+): Promise<{ path: string; signedUrl: string; token: string }> {
+  const admin = getAdminClient();
+  const { data, error } = await admin.storage.from(BUCKET).createSignedUploadUrl(path);
+  if (error || !data) {
+    throw new Error(`Failed to create upload URL: ${error?.message}`);
+  }
+  return { path, signedUrl: data.signedUrl, token: data.token };
+}
+
+/**
+ * Create a short-lived signed DOWNLOAD URL for the /api/media proxy to redirect
+ * to. The 1-hour TTL doesn't matter to the app: because the proxy regenerates
+ * it on every request, the app-facing /api/media URL effectively never expires.
+ */
+export async function createMediaSignedUrl(
+  path: string,
+  ttlSeconds = 3600
+): Promise<string | null> {
+  const admin = getAdminClient();
+  const { data, error } = await admin.storage.from(BUCKET).createSignedUrl(path, ttlSeconds);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
 }
