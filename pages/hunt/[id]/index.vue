@@ -540,12 +540,14 @@ const otherTeams = computed(() =>
 
 /** Intercept check-in / skip toggles on bars */
 function handleBarToggle(bar: HuntBar, target: string) {
-  if (target === "checked" && bar.checkStatus === "unchecked") {
-    // Open the check-in modal
+  if (target === "checked") {
+    // Open the check-in modal. Allowed even when the bar is already "checked",
+    // so a 2nd/3rd/4th team that shows up later can record their own check-in +
+    // photo instead of being locked out (the "4 teams, one bar" problem).
     checkInBarId.value = bar.id;
     showCheckInModal.value = true;
   } else {
-    // Toggle as before (uncheck or suggest skip)
+    // Toggle skip status as before.
     toggleStatus(bar, target);
   }
 }

@@ -27,6 +27,12 @@
     <div class="flex flex-col gap-1.5 items-end justify-center">
       <template v-if="bar.checkStatus === 'checked'">
         <span class="text-xs font-semibold text-green whitespace-nowrap">Visited and checked</span>
+        <!-- A bar can have many check-ins: another team that shows up later can
+             still record their own check-in + photo here. -->
+        <button
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 cursor-pointer transition-all whitespace-nowrap min-w-[100px] text-center border-green/40 bg-[#f0faf4] text-green hover:border-green hover:bg-green/10"
+          @click.stop="$emit('toggle', bar, 'checked')"
+        >+ Check in</button>
       </template>
       <template v-else>
         <button
