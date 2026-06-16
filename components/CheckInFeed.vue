@@ -77,6 +77,41 @@
         <div v-else-if="isRedacted(ci) && ci.note" class="px-4 pb-3">
           <p class="text-sm m-0 leading-relaxed font-mono text-text-muted/50">{{ scrambleText(ci.note, ci.id + 'note') }}</p>
         </div>
+
+        <!-- Owner actions (your own, non-redacted check-ins only) -->
+        <div v-if="canEdit(ci) && editingId !== ci.id && pendingDeleteId !== ci.id" class="px-4 pb-3 flex gap-3">
+          <button class="text-[11px] font-semibold text-text-muted hover:text-accent transition-colors" @click="startEdit(ci)">Edit</button>
+          <button class="text-[11px] font-semibold text-text-muted hover:text-red transition-colors" @click="pendingDeleteId = ci.id; editingId = null">Delete</button>
+        </div>
+
+        <!-- Inline edit: note + which team you ran into -->
+        <div v-else-if="editingId === ci.id" class="px-4 pb-3 flex flex-col gap-2">
+          <input
+            v-model="editNote"
+            type="text"
+            placeholder="Note about the visit..."
+            maxlength="200"
+            class="w-full px-3 py-2 border-2 border-border rounded-xl text-sm bg-bg focus:outline-none focus:border-green"
+          />
+          <select
+            v-model="editWithTeamId"
+            class="w-full px-3 py-2 border-2 border-border rounded-xl text-sm bg-bg focus:outline-none focus:border-green"
+          >
+            <option :value="null">Didn't run into another team</option>
+            <option v-for="t in otherTeamsFor(ci)" :key="t.id" :value="t.id">⚔️ Ran into {{ t.name }}</option>
+          </select>
+          <div class="flex gap-2">
+            <button class="px-3 py-1.5 rounded-lg text-xs font-semibold border-0 bg-green text-white cursor-pointer hover:bg-green/90" @click="saveEdit(ci)">Save</button>
+            <button class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-border bg-surface text-text-muted cursor-pointer hover:border-accent" @click="cancelEdit">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Inline delete confirm -->
+        <div v-else-if="pendingDeleteId === ci.id" class="px-4 pb-3 flex items-center gap-2 flex-wrap">
+          <span class="text-xs text-text-muted">Delete this check-in?</span>
+          <button class="px-3 py-1.5 rounded-lg text-xs font-semibold border-0 bg-red text-white cursor-pointer hover:bg-red/90" @click="confirmDelete(ci)">Delete</button>
+          <button class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-border bg-surface text-text-muted cursor-pointer hover:border-accent" @click="pendingDeleteId = null">Cancel</button>
+        </div>
       </div>
     </div>
 
@@ -101,7 +136,45 @@ const props = defineProps<{
   bars: HuntBar[];
   teams: Team[];
   arrivals: HuntArrival[];
+  currentUserId?: string | null;
 }>();
+
+const emit = defineEmits<{
+  edit: [checkInId: string, updates: { note: string; withTeamId: string | null }];
+  delete: [checkInId: string];
+}>();
+
+// ── Owner edit / delete ────────────────────────────────
+const editingId = ref<string | null>(null);
+const editNote = ref("");
+const editWithTeamId = ref<string | null>(null);
+const pendingDeleteId = ref<string | null>(null);
+
+/** You can edit/delete your own check-ins (but not while they're redacted). */
+function canEdit(ci: HuntCheckIn): boolean {
+  return !!props.currentUserId && ci.userId === props.currentUserId && !isRedacted(ci);
+}
+/** Teams you could have "run into" — everyone except chickens and your own team. */
+function otherTeamsFor(ci: HuntCheckIn): Team[] {
+  return props.teams.filter((t) => !t.isChicken && t.id !== ci.teamId);
+}
+function startEdit(ci: HuntCheckIn) {
+  editingId.value = ci.id;
+  editNote.value = ci.note || "";
+  editWithTeamId.value = ci.withTeamId ?? null;
+  pendingDeleteId.value = null;
+}
+function saveEdit(ci: HuntCheckIn) {
+  emit("edit", ci.id, { note: editNote.value, withTeamId: editWithTeamId.value });
+  editingId.value = null;
+}
+function cancelEdit() {
+  editingId.value = null;
+}
+function confirmDelete(ci: HuntCheckIn) {
+  emit("delete", ci.id);
+  pendingDeleteId.value = null;
+}
 
 const fullImagePath = ref<string | null>(null);
 

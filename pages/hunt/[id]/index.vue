@@ -262,7 +262,15 @@
 
       <!-- Feed tab content -->
       <div v-show="activeTab === 'feed'">
-        <CheckInFeed :check-ins="checkIns" :bars="bars" :teams="teams" :arrivals="arrivals" />
+        <CheckInFeed
+          :check-ins="checkIns"
+          :bars="bars"
+          :teams="teams"
+          :arrivals="arrivals"
+          :current-user-id="auth.state.user?.id"
+          @edit="editCheckIn"
+          @delete="deleteCheckIn"
+        />
       </div>
 
       <!-- Team Rename Modal -->
@@ -361,7 +369,7 @@ const {
   isCreator, myTeam, myTeamHunterCount, totalHunterCount, statusCounts, filteredBars,
   budgetTotal, budgetSpent, budgetRemaining, budgetPercent,
   checkInUploading,
-  loadHunt, toggleStatus, checkInBar, renameTeam,
+  loadHunt, toggleStatus, checkInBar, deleteCheckIn, editCheckIn, renameTeam,
   setOnMarkersChanged, startPolling, stopPolling,
 } = useHunt(huntId);
 

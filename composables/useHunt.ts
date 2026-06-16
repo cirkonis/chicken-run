@@ -251,6 +251,30 @@ export function useHunt(huntId: string) {
     }
   }
 
+  /** Delete one of your own check-ins (or any, if you're the host). */
+  async function deleteCheckIn(checkInId: string) {
+    try {
+      await auth.authFetch(`/api/hunts/${huntId}/check-ins/${checkInId}`, { method: "DELETE" });
+      checkIns.value = checkIns.value.filter((c) => c.id !== checkInId);
+    } catch (e: any) {
+      error.value = e?.data?.message || e?.message || "Failed to delete check-in";
+    }
+  }
+
+  /** Edit a check-in's note and/or the team it ran into. */
+  async function editCheckIn(checkInId: string, updates: { note: string; withTeamId: string | null }) {
+    try {
+      const res = await auth.authFetch<any>(`/api/hunts/${huntId}/check-ins/${checkInId}`, {
+        method: "PATCH",
+        body: updates,
+      });
+      const idx = checkIns.value.findIndex((c) => c.id === checkInId);
+      if (idx >= 0) checkIns.value[idx] = res.checkIn;
+    } catch (e: any) {
+      error.value = e?.data?.message || e?.message || "Failed to edit check-in";
+    }
+  }
+
   async function renameTeam(teamId: string, newName: string) {
     try {
       const res = await auth.authFetch<any>(
@@ -388,6 +412,8 @@ export function useHunt(huntId: string) {
     toggleStatus,
     addHint,
     checkInBar,
+    deleteCheckIn,
+    editCheckIn,
     renameTeam,
     refreshHunt,
     formatTime,
