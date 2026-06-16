@@ -155,8 +155,7 @@ export interface HuntCheckIn {
   huntId: string;
   barId: string;
   teamId: string | null;
-  withTeamId: string | null;
-  withTeamName: string | null;
+  withTeams: { id: string; name: string }[];
   userId: string;
   note: string;
   imagePath?: string | null;

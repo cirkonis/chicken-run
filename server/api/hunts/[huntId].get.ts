@@ -68,7 +68,7 @@ export default defineEventHandler(async (event) => {
       .order("arrived_at"),
     admin
       .from("hunt_check_ins")
-      .select("*, with_team:hunt_teams!hunt_check_ins_with_team_id_fkey(name)")
+      .select("*, hunt_check_in_teams(hunt_teams(id, name))")
       .eq("hunt_id", huntId)
       .order("created_at"),
   ]);

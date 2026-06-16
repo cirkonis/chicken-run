@@ -65,12 +65,12 @@
         </div>
 
         <!-- Note + with team (normal) -->
-        <div v-if="!isRedacted(ci) && (ci.note || ci.withTeamName)" class="px-4 pb-3 flex flex-col gap-1.5">
+        <div v-if="!isRedacted(ci) && (ci.note || ci.withTeams.length)" class="px-4 pb-3 flex flex-col gap-1.5">
           <p v-if="ci.note" class="text-sm m-0 leading-relaxed">{{ ci.note }}</p>
           <span
-            v-if="ci.withTeamName"
+            v-if="ci.withTeams.length"
             class="inline-flex items-center gap-1 text-[11px] font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-md w-fit"
-          >⚔️ Ran into {{ ci.withTeamName }}!</span>
+          >⚔️ Ran into {{ ci.withTeams.map(t => t.name).join(', ') }}!</span>
         </div>
 
         <!-- Note (redacted) -->
@@ -93,13 +93,12 @@
             maxlength="200"
             class="w-full px-3 py-2 border-2 border-border rounded-xl text-sm bg-bg focus:outline-none focus:border-green"
           />
-          <select
-            v-model="editWithTeamId"
-            class="w-full px-3 py-2 border-2 border-border rounded-xl text-sm bg-bg focus:outline-none focus:border-green"
-          >
-            <option :value="null">Didn't run into another team</option>
-            <option v-for="t in otherTeamsFor(ci)" :key="t.id" :value="t.id">⚔️ Ran into {{ t.name }}</option>
-          </select>
+          <div class="flex flex-col gap-1 max-h-32 overflow-y-auto">
+            <label v-for="t in otherTeamsFor(ci)" :key="t.id" class="flex items-center gap-2 text-xs cursor-pointer px-2 py-1 border border-border rounded-lg bg-bg">
+              <input type="checkbox" :value="t.id" v-model="editWithTeamIds" class="accent-green" />
+              ⚔️ Ran into {{ t.name }}
+            </label>
+          </div>
           <div class="flex gap-2">
             <button class="px-3 py-1.5 rounded-lg text-xs font-semibold border-0 bg-green text-white cursor-pointer hover:bg-green/90" @click="saveEdit(ci)">Save</button>
             <button class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-border bg-surface text-text-muted cursor-pointer hover:border-accent" @click="cancelEdit">Cancel</button>
@@ -140,14 +139,14 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  edit: [checkInId: string, updates: { note: string; withTeamId: string | null }];
+  edit: [checkInId: string, updates: { note: string; withTeamIds: string[] }];
   delete: [checkInId: string];
 }>();
 
 // ── Owner edit / delete ────────────────────────────────
 const editingId = ref<string | null>(null);
 const editNote = ref("");
-const editWithTeamId = ref<string | null>(null);
+const editWithTeamIds = ref<string[]>([]);
 const pendingDeleteId = ref<string | null>(null);
 
 /** You can edit/delete your own check-ins (but not while they're redacted). */
@@ -161,11 +160,11 @@ function otherTeamsFor(ci: HuntCheckIn): Team[] {
 function startEdit(ci: HuntCheckIn) {
   editingId.value = ci.id;
   editNote.value = ci.note || "";
-  editWithTeamId.value = ci.withTeamId ?? null;
+  editWithTeamIds.value = ci.withTeams.map((t) => t.id);
   pendingDeleteId.value = null;
 }
 function saveEdit(ci: HuntCheckIn) {
-  emit("edit", ci.id, { note: editNote.value, withTeamId: editWithTeamId.value });
+  emit("edit", ci.id, { note: editNote.value, withTeamIds: editWithTeamIds.value });
   editingId.value = null;
 }
 function cancelEdit() {

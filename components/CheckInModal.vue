@@ -49,16 +49,19 @@
           />
         </div>
 
-        <!-- Team selector (optional, hidden if no other teams) -->
+        <!-- Team selector (optional, hidden if no other teams) — pick any number -->
         <div v-if="teams.length > 0" class="mb-3">
-          <label class="text-[13px] font-semibold text-text-muted block mb-1">Ran into another team? <span class="font-normal">(optional)</span></label>
-          <select
-            v-model="withTeamId"
-            class="w-full px-3 py-2 border-2 border-border rounded-xl text-sm bg-bg focus:outline-none focus:border-green"
-          >
-            <option :value="null">No one</option>
-            <option v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</option>
-          </select>
+          <label class="text-[13px] font-semibold text-text-muted block mb-1">Ran into other teams? <span class="font-normal">(optional)</span></label>
+          <div class="flex flex-col gap-1.5 max-h-44 overflow-y-auto">
+            <label
+              v-for="t in teams"
+              :key="t.id"
+              class="flex items-center gap-2 text-sm cursor-pointer px-3 py-2 border-2 border-border rounded-xl bg-bg"
+            >
+              <input type="checkbox" :value="t.id" v-model="withTeamIds" class="accent-green w-4 h-4" />
+              {{ t.name }}
+            </label>
+          </div>
         </div>
 
         <!-- Actions -->
@@ -96,14 +99,14 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   "update:modelValue": [value: boolean];
-  submit: [payload: { note: string; image: File; withTeamId: string | null }];
+  submit: [payload: { note: string; image: File; withTeamIds: string[] }];
 }>();
 
 // Internal state
 const note = ref("");
 const image = ref<File | null>(null);
 const imagePreview = ref<string | null>(null);
-const withTeamId = ref<string | null>(null);
+const withTeamIds = ref<string[]>([]);
 const fileInput = ref<HTMLInputElement | null>(null);
 
 function onFileSelected(e: Event) {
@@ -125,7 +128,7 @@ function clearImage() {
 function resetState() {
   note.value = "";
   clearImage();
-  withTeamId.value = null;
+  withTeamIds.value = [];
 }
 
 function close() {
@@ -138,7 +141,7 @@ function submit() {
   emit("submit", {
     note: note.value,
     image: image.value,
-    withTeamId: withTeamId.value,
+    withTeamIds: withTeamIds.value,
   });
 }
 

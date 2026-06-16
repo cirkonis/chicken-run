@@ -560,10 +560,10 @@ function handleBarToggle(bar: HuntBar, target: string) {
   }
 }
 
-async function onCheckInSubmit(payload: { note: string; image: File; withTeamId: string | null }) {
+async function onCheckInSubmit(payload: { note: string; image: File; withTeamIds: string[] }) {
   if (!checkInBarId.value) return;
   try {
-    await checkInBar(checkInBarId.value, payload.note, payload.image, payload.withTeamId);
+    await checkInBar(checkInBarId.value, payload.note, payload.image, payload.withTeamIds);
     showCheckInModal.value = false;
     checkInBarId.value = null;
   } catch {

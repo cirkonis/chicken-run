@@ -227,7 +227,7 @@ const totalDrinks = computed(() => {
   if (props.checkIns.length > 0) {
     return props.checkIns.reduce((sum, ci) => {
       const teamCount = ci.teamId ? (teamSizeMap.get(ci.teamId) ?? 1) : 1;
-      const withCount = ci.withTeamId ? (teamSizeMap.get(ci.withTeamId) ?? 0) : 0;
+      const withCount = (ci.withTeams ?? []).reduce((s, t) => s + (teamSizeMap.get(t.id) ?? 0), 0);
       return sum + teamCount + withCount;
     }, 0);
   }

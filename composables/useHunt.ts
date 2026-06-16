@@ -213,7 +213,7 @@ export function useHunt(huntId: string) {
   // ── Check-Ins ──────────────────────────────────────────
   const checkInUploading = ref(false);
 
-  async function checkInBar(barId: string, note: string = "", imageFile?: File | null, withTeamId?: string | null) {
+  async function checkInBar(barId: string, note: string = "", imageFile?: File | null, withTeamIds: string[] = []) {
     checkInUploading.value = !!imageFile;
 
     try {
@@ -227,7 +227,7 @@ export function useHunt(huntId: string) {
       // 2. Record the check-in as plain JSON — just the path + metadata.
       const res = await auth.authFetch<any>(`/api/hunts/${huntId}/bars/${barId}/check-in`, {
         method: "POST",
-        body: { imagePath, note, withTeamId: withTeamId || null },
+        body: { imagePath, note, withTeamIds },
       });
 
       // Add check-in to local state
@@ -262,7 +262,7 @@ export function useHunt(huntId: string) {
   }
 
   /** Edit a check-in's note and/or the team it ran into. */
-  async function editCheckIn(checkInId: string, updates: { note: string; withTeamId: string | null }) {
+  async function editCheckIn(checkInId: string, updates: { note: string; withTeamIds: string[] }) {
     try {
       const res = await auth.authFetch<any>(`/api/hunts/${huntId}/check-ins/${checkInId}`, {
         method: "PATCH",

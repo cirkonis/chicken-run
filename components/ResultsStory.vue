@@ -86,9 +86,9 @@
         </div>
 
         <!-- Ran into -->
-        <div v-if="item.type === 'checkin' && item.data.withTeamName" class="px-4 pb-3">
+        <div v-if="item.type === 'checkin' && item.data.withTeams.length" class="px-4 pb-3">
           <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-md">
-            ⚔️ Ran into {{ item.data.withTeamName }}!
+            ⚔️ Ran into {{ item.data.withTeams.map(t => t.name).join(', ') }}!
           </span>
         </div>
       </div>
