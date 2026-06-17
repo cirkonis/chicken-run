@@ -47,6 +47,11 @@ Local endpoints (defaults from `config.toml`):
 
 ## Pushing to production
 
+> 📘 First time syncing prod after the overhaul merge? Follow the detailed,
+> checklisted walkthrough in **[PRODUCTION_SYNC.md](PRODUCTION_SYNC.md)** — it
+> covers marking the baseline as applied, the storage bucket, EU region, and the
+> Data API grants. The quick version is below.
+
 Production is **not** touched until you explicitly link and push:
 
 ```bash

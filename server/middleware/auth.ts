@@ -9,6 +9,8 @@ const PUBLIC_ROUTES = [
   "/api/hunts/join-guest",
   "/api/hunts/validate-code",
   "/api/bars/search",
+  // DEV-ONLY host sign-in (the handler itself 403s outside `nuxt dev`).
+  "/api/dev/login",
 ];
 
 export default defineEventHandler(async (event) => {

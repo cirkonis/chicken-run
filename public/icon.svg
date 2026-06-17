@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full-bleed background so the icon works as a "maskable" PWA icon
+       (Android may crop to a circle/squircle; the chicken stays in the
+       safe central zone). Colour matches the app accent (#e67e22). -->
+  <rect width="512" height="512" rx="112" fill="#e67e22"/>
+  <text x="50%" y="50%" font-size="288" text-anchor="middle" dominant-baseline="central">🐔</text>
+</svg>

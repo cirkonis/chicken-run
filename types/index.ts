@@ -130,6 +130,23 @@ export interface AuthSession {
   expires_at?: number;
 }
 
+/**
+ * The hunt a player is currently in. We stash this in their saved session so
+ * the home screen can offer a one-tap "jump back in" shortcut after they close
+ * the app or hit the mobile Back button — no need to re-enter a join code.
+ * (Issue #1.)
+ */
+export interface ActiveHunt {
+  /** The hunt to return to. */
+  huntId: string;
+  /** "chicken" routes to /chicken/[id]; anything else to /hunt/[id]. */
+  role: string;
+  /** Hunt name, shown on the resume banner. */
+  huntName: string;
+  /** The name the player joined as (friendly label on the banner). */
+  playerName?: string;
+}
+
 // ── Expense (chicken budget tracking) ────────────────────
 export interface HuntExpense {
   id: string;

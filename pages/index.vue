@@ -4,6 +4,22 @@
     <LoadingSpinner v-if="auth.state.loading" message="Warming up the coop..." />
 
     <template v-else>
+      <!-- ─── Resume banner (issue #1) ──────────────────── -->
+      <!-- Shown when this device already joined a hunt. One tap drops the
+           player straight back in — no join code, no name-picking again. -->
+      <div v-if="resumeHunt" class="bg-accent/10 border-[3px] border-accent rounded-[20px] p-5 mt-4 text-center">
+        <p class="text-text-muted text-[13px] m-0 mb-1">You're in the middle of a hunt</p>
+        <h2 class="m-0 mb-3 text-xl text-accent-dark">🐔 {{ resumeHunt.huntName }}</h2>
+        <button
+          class="w-full px-6 py-3.5 border-0 rounded-[14px] cursor-pointer bg-accent text-white font-bold text-base transition-colors hover:bg-accent-dark"
+          @click="goToResume"
+        >Jump back in →</button>
+        <button
+          class="mt-2 bg-transparent border-none text-text-muted text-[13px] cursor-pointer underline"
+          @click="dismissResume"
+        >Not you? Leave the hunt</button>
+      </div>
+
       <!-- ─── Hero: Join a Hunt ─────────────────────────── -->
       <div class="flex justify-end pt-4 pb-0">
         <InfoButton @click="showGuide = true" />
@@ -70,8 +86,10 @@
 
       <!-- ─── Host section ──────────────────────────────── -->
       <div class="mt-6">
-        <!-- Not logged in: show Google sign-in -->
-        <div v-if="!auth.isLoggedIn.value" class="bg-surface border-2 border-border rounded-[20px] p-6 text-center">
+        <!-- Not a host (anonymous OR a guest player): show Google sign-in.
+             Guests used to fall through to the host card below and saw a
+             "Go to Host Dashboard" button they could never use — issue #1. -->
+        <div v-if="!auth.isHost.value" class="bg-surface border-2 border-border rounded-[20px] p-6 text-center">
           <h3 class="m-0 mb-1 text-lg">Host a Hunt</h3>
           <p class="text-text-muted text-[13px] m-0 mb-4">Create hunts, get codes, run the show.</p>
 
@@ -90,6 +108,16 @@
               <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
             </svg>
             {{ authLoading ? 'Redirecting...' : 'Sign in with Google' }}
+          </button>
+
+          <!-- Dev-only shortcut: sign in as the seeded local host (issue #4a). -->
+          <button
+            v-if="isDev"
+            class="w-full mt-3 px-5 py-2.5 border-2 border-dashed border-accent/50 rounded-xl cursor-pointer bg-accent/5 font-semibold text-[13px] text-accent transition-all hover:bg-accent/10 disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="devLoginLoading"
+            @click="handleDevLogin"
+          >
+            🛠 {{ devLoginLoading ? 'Signing in…' : 'Dev login as host' }}
           </button>
         </div>
 
@@ -159,9 +187,51 @@ const codeType = ref<"team" | "chicken" | "">("");
 const authError = ref("");
 const authLoading = ref(false);
 
+// ── Dev-only host login (issue #4a) ───────────────────────
+// Sign in as the seeded local host WITHOUT Google OAuth, so host/management
+// flows can be driven against the local stack. The endpoint is hard-gated to
+// `nuxt dev` (403 in prod); this button only renders in dev as well.
+const isDev = import.meta.dev;
+const devLoginLoading = ref(false);
+
+async function handleDevLogin() {
+  authError.value = "";
+  devLoginLoading.value = true;
+  try {
+    const res = await $fetch<any>("/api/dev/login", { method: "POST" });
+    auth.setSession(
+      { id: res.user.id, displayName: res.user.displayName, avatarUrl: res.user.avatarUrl },
+      res.session
+    );
+    router.push("/dashboard");
+  } catch (e: any) {
+    authError.value = e?.data?.message || e?.message || "Dev login failed";
+  } finally {
+    devLoginLoading.value = false;
+  }
+}
+
 onMounted(async () => {
   await auth.restore();
 });
+
+// ── Resume an in-progress hunt (issue #1) ─────────────────
+// If this device already joined a hunt, `auth.state.lastHunt` was saved into
+// the session. Offer a one-tap shortcut back into it instead of the code form.
+const resumeHunt = computed(() => auth.state.lastHunt);
+
+function goToResume() {
+  const h = auth.state.lastHunt;
+  if (!h) return;
+  router.push(h.role === "chicken" ? `/chicken/${h.huntId}` : `/hunt/${h.huntId}`);
+}
+
+function dismissResume() {
+  // "Not you?" — forget the saved hunt. For a guest we also drop the session
+  // entirely so a different person can join cleanly on a shared phone.
+  auth.clearLastHunt();
+  if (auth.isGuest.value) auth.logout();
+}
 
 async function validateCode() {
   const code = joinCode.value.trim().toUpperCase();
@@ -212,6 +282,15 @@ async function joinAsGuest(memberName: string) {
       },
       res.session
     );
+
+    // Remember this hunt so the home screen can offer a one-tap "resume"
+    // if they ever get bounced out (mobile Back button, closed tab). Issue #1.
+    auth.setLastHunt({
+      huntId: res.huntId,
+      role: res.role,
+      huntName: res.huntName,
+      playerName: res.user.displayName,
+    });
 
     // Navigate to the right page based on role
     if (res.role === "chicken") {

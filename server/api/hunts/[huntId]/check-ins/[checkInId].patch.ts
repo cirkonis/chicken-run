@@ -15,12 +15,15 @@ export default defineEventHandler(async (event) => {
 
   const admin = getAdminClient();
 
-  const [{ data: ci }, { data: hunt }] = await Promise.all([
-    admin.from("hunt_check_ins").select("user_id, team_id").eq("id", checkInId).eq("hunt_id", huntId).maybeSingle(),
-    admin.from("hunts").select("creator_id").eq("id", huntId).maybeSingle(),
-  ]);
+  const { data: ci } = await admin
+    .from("hunt_check_ins")
+    .select("user_id, team_id")
+    .eq("id", checkInId)
+    .eq("hunt_id", huntId)
+    .maybeSingle();
   if (!ci) throw createError({ statusCode: 404, statusMessage: "Check-in not found" });
-  if (ci.user_id !== userId && hunt?.creator_id !== userId) {
+  // Author OR a hunt manager may edit (issue #4).
+  if (ci.user_id !== userId && !(await isHuntManager(huntId, userId))) {
     throw createError({ statusCode: 403, statusMessage: "You can only edit your own check-ins" });
   }
 

@@ -70,12 +70,12 @@ export async function getUserIdFromToken(token: string): Promise<string | null> 
 }
 
 // ── Hunt membership check (admin client, bypasses RLS) ───────────────────────
-/** True if the user is a participant of the hunt OR its creator. */
+/** True if the user is a participant of the hunt, its creator, OR a co-manager. */
 export async function isHuntMember(huntId: string, userId: string): Promise<boolean> {
   if (!huntId || !userId) return false;
 
   const admin = getAdminClient();
-  const [{ data: participant }, { data: hunt }] = await Promise.all([
+  const [{ data: participant }, { data: hunt }, { data: manager }] = await Promise.all([
     admin
       .from("hunt_participants")
       .select("user_id")
@@ -83,8 +83,38 @@ export async function isHuntMember(huntId: string, userId: string): Promise<bool
       .eq("user_id", userId)
       .maybeSingle(),
     admin.from("hunts").select("creator_id").eq("id", huntId).maybeSingle(),
+    admin
+      .from("hunt_managers")
+      .select("user_id")
+      .eq("hunt_id", huntId)
+      .eq("user_id", userId)
+      .maybeSingle(),
   ]);
 
-  return !!participant || hunt?.creator_id === userId;
+  return !!participant || hunt?.creator_id === userId || !!manager;
+}
+
+// ── Hunt management check (admin client, bypasses RLS) ────────────────────────
+/**
+ * True if the user may MANAGE the hunt — i.e. they're the creator OR an added
+ * co-manager (issue #4). This is the server-side mirror of the is_hunt_manager()
+ * SQL function and replaces the old `hunt.creator_id === userId` checks in the
+ * endpoints that use the admin client (which bypasses RLS).
+ */
+export async function isHuntManager(huntId: string, userId: string): Promise<boolean> {
+  if (!huntId || !userId) return false;
+
+  const admin = getAdminClient();
+  const [{ data: hunt }, { data: manager }] = await Promise.all([
+    admin.from("hunts").select("creator_id").eq("id", huntId).maybeSingle(),
+    admin
+      .from("hunt_managers")
+      .select("user_id")
+      .eq("hunt_id", huntId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
+
+  return hunt?.creator_id === userId || !!manager;
 }
 

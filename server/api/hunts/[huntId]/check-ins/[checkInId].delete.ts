@@ -15,20 +15,17 @@ export default defineEventHandler(async (event) => {
 
   const admin = getAdminClient();
 
-  // Load the check-in + the hunt's creator to decide who may delete.
-  const [{ data: ci }, { data: hunt }] = await Promise.all([
-    admin
-      .from("hunt_check_ins")
-      .select("user_id, image_path")
-      .eq("id", checkInId)
-      .eq("hunt_id", huntId)
-      .maybeSingle(),
-    admin.from("hunts").select("creator_id").eq("id", huntId).maybeSingle(),
-  ]);
+  // Load the check-in to decide who may delete: its author OR a hunt manager.
+  const { data: ci } = await admin
+    .from("hunt_check_ins")
+    .select("user_id, image_path")
+    .eq("id", checkInId)
+    .eq("hunt_id", huntId)
+    .maybeSingle();
 
   if (!ci) throw createError({ statusCode: 404, statusMessage: "Check-in not found" });
 
-  if (ci.user_id !== userId && hunt?.creator_id !== userId) {
+  if (ci.user_id !== userId && !(await isHuntManager(huntId, userId))) {
     throw createError({ statusCode: 403, statusMessage: "You can only delete your own check-ins" });
   }
 

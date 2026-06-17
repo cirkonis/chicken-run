@@ -19,12 +19,11 @@ export default defineEventHandler(async (event) => {
 
   // ── Edit details (name / address) — host or chicken ───
   if (body.name !== undefined || body.address !== undefined) {
-    const [{ data: participant }, { data: hunt }] = await Promise.all([
-      admin.from("hunt_participants").select("role").eq("hunt_id", huntId).eq("user_id", userId).maybeSingle(),
-      admin.from("hunts").select("creator_id").eq("id", huntId).maybeSingle(),
-    ]);
-    if (hunt?.creator_id !== userId && participant?.role !== "chicken") {
-      throw createError({ statusCode: 403, statusMessage: "Only the host or a chicken can edit bar details" });
+    const { data: participant } = await admin
+      .from("hunt_participants").select("role").eq("hunt_id", huntId).eq("user_id", userId).maybeSingle();
+    // A hunt manager (creator or co-manager) or a chicken can fix bar details (issue #4).
+    if (!(await isHuntManager(huntId, userId)) && participant?.role !== "chicken") {
+      throw createError({ statusCode: 403, statusMessage: "Only a manager or a chicken can edit bar details" });
     }
 
     const { data: existing } = await admin

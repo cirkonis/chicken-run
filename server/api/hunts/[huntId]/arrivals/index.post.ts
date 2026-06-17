@@ -14,16 +14,13 @@ export default defineEventHandler(async (event) => {
 
   const admin = getAdminClient();
 
-  // ── Verify the user is a chicken participant or the hunt creator ─
-  const [{ data: participant }, { data: huntRow }] = await Promise.all([
-    admin.from("hunt_participants").select("role").eq("hunt_id", huntId).eq("user_id", userId).maybeSingle(),
-    admin.from("hunts").select("creator_id").eq("id", huntId).maybeSingle(),
-  ]);
+  // ── Verify the user is a chicken participant or a hunt manager (issue #4) ─
+  const { data: participant } = await admin
+    .from("hunt_participants").select("role").eq("hunt_id", huntId).eq("user_id", userId).maybeSingle();
 
   const isChicken = participant?.role === "chicken";
-  const isCreator = huntRow?.creator_id === userId;
-  if (!isChicken && !isCreator) {
-    throw createError({ statusCode: 403, statusMessage: "Only chickens or the host can record arrivals" });
+  if (!isChicken && !(await isHuntManager(huntId, userId))) {
+    throw createError({ statusCode: 403, statusMessage: "Only chickens or a hunt manager can record arrivals" });
   }
 
   const body = await readBody<{ teamId?: string; note?: string; imagePath?: string }>(event);

@@ -348,6 +348,16 @@
       </Teleport>
     </template>
 
+    <!-- Back-button leave confirmation (issue #1). Lives outside the hunt
+         block so it works even if the hunt failed to load. -->
+    <ConfirmModal
+      v-model="showLeaveConfirm"
+      title="Leave the hunt?"
+      message="You can jump straight back in from the home screen — no code needed."
+      confirm-label="Leave"
+      @confirm="goBack"
+    />
+
     <GameGuide v-model="showGuide" />
   </div>
 </template>
@@ -360,6 +370,10 @@ const router = useRouter();
 const auth = useAuth();
 const huntId = route.params.id as string;
 const showGuide = ref(false);
+
+// Back-button guard: intercept the mobile/browser Back press and confirm
+// "Leave the hunt?" instead of silently exiting the app (issue #1).
+const { showLeaveConfirm } = useLeaveGuard();
 
 // ── Composables ──────────────────────────────────────────
 const {
@@ -605,12 +619,14 @@ async function doRenameTeam() {
 }
 
 // ── Navigation ───────────────────────────────────────────
+// Leaving the hunt. Hosts pop back to their dashboard; players go to the home
+// screen but KEEP their session, so the "jump back in" banner can offer a
+// one-tap return with no join code (issue #1). We use a full navigation
+// (window.location) rather than router.push so the back-button guard's sentinel
+// history entries are cleared in the process.
 function goBack() {
-  if (auth.isHost.value) {
-    router.push("/dashboard");
-  } else {
-    auth.logout();
-  }
+  if (!import.meta.client) return;
+  window.location.href = auth.isHost.value ? "/dashboard" : "/";
 }
 
 // ── Lifecycle ────────────────────────────────────────────
@@ -628,6 +644,16 @@ onMounted(async () => {
   if (hunt.value?.status === 'completed') {
     navigateTo(`/hunt/${huntId}/results`);
     return;
+  }
+
+  // Remember this hunt so the home screen can offer a one-tap resume (issue #1).
+  if (hunt.value) {
+    auth.setLastHunt({
+      huntId,
+      role: "hunter",
+      huntName: hunt.value.name,
+      playerName: auth.state.user?.displayName,
+    });
   }
 
   seenCheckInCount.value = checkIns.value.length;

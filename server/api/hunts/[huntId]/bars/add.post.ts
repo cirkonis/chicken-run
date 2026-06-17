@@ -16,8 +16,9 @@ export default defineEventHandler(async (event) => {
     admin.from("hunts").select("creator_id, center_lat, center_lng").eq("id", huntId).maybeSingle(),
   ]);
   if (!hunt) throw createError({ statusCode: 404, statusMessage: "Hunt not found" });
-  if (hunt.creator_id !== userId && participant?.role !== "chicken") {
-    throw createError({ statusCode: 403, statusMessage: "Only the host or a chicken can add bars" });
+  // A hunt manager (creator or co-manager) or a chicken can add bars (issue #4).
+  if (!(await isHuntManager(huntId, userId)) && participant?.role !== "chicken") {
+    throw createError({ statusCode: 403, statusMessage: "Only a manager or a chicken can add bars" });
   }
 
   const body = await readBody<{ name?: string; address?: string }>(event);
