@@ -203,6 +203,34 @@ export function useChicken(huntId: string) {
     selectedBarId.value = barId;
   }
 
+  // ── Bar editing / manual add (coop setup) ─────────────
+  /** Add a bar by hand (name + address) — for when the coop isn't in the list. */
+  async function addBar(name: string, address: string) {
+    try {
+      const res = await auth.authFetch<any>(`/api/hunts/${huntId}/bars/add`, {
+        method: "POST",
+        body: { name, address },
+      });
+      bars.value.push(res.bar);
+    } catch (e: any) {
+      error.value = e?.data?.message || e?.message || "Failed to add bar";
+    }
+  }
+
+  /** Fix a bar's name/address so the map link points at the right place. */
+  async function editBar(barId: string, updates: { name: string; address: string }) {
+    try {
+      const res = await auth.authFetch<any>(`/api/hunts/${huntId}/bars/${barId}`, {
+        method: "PATCH",
+        body: updates,
+      });
+      const idx = bars.value.findIndex((b) => b.id === barId);
+      if (idx >= 0) bars.value[idx] = res.bar;
+    } catch (e: any) {
+      error.value = e?.data?.message || e?.message || "Failed to edit bar";
+    }
+  }
+
   // ── Polling (30s background refresh) ───────────────────
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -303,6 +331,8 @@ export function useChicken(huntId: string) {
     addArrival,
     deleteArrival,
     selectCoop,
+    addBar,
+    editBar,
     formatTime,
 
     // Polling

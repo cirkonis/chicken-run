@@ -19,6 +19,8 @@
       v-else-if="hunt && !selectedBarId"
       :bars="bars"
       @selected="onCoopSelected"
+      @add="addBar"
+      @edit="editBar"
     />
 
     <template v-else-if="hunt">
@@ -470,7 +472,7 @@ const {
   budgetTotal, budgetSpent, budgetRemaining, budgetPercent,
   unarrivedTeams,
   loadHunt, addHint, deleteHint, addExpense, deleteExpense, addArrival, deleteArrival,
-  selectCoop,
+  selectCoop, addBar, editBar,
   formatTime,
   startPolling, stopPolling,
 } = useChicken(huntId);

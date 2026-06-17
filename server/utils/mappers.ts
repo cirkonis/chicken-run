@@ -56,6 +56,8 @@ export function mapBar(row: Record<string, any>): HuntBar {
     checkStatus: row.check_status ?? "unchecked",
     checkedBy: row.checked_by,
     checkedAt: row.checked_at,
+    source: row.source ?? "google",
+    edited: row.edited ?? false,
   };
 }
 

@@ -311,6 +311,25 @@
               No bars match your search.
             </p>
           </template>
+
+          <!-- Add a bar by hand (host, during setup) -->
+          <div v-if="barsOpen && !searchingBars && isPreparing" class="mt-3 pt-3 border-t-2 border-border">
+            <button
+              v-if="!showAddBar"
+              type="button"
+              class="text-sm font-semibold text-accent hover:text-accent-dark cursor-pointer bg-transparent border-0 p-0"
+              @click="showAddBar = true"
+            >+ Add a bar manually</button>
+            <div v-else class="flex flex-col gap-2 p-3 border-2 border-accent/30 rounded-xl bg-accent/5">
+              <input v-model="newBarName" type="text" placeholder="Bar name" class="w-full px-3 py-2 border-2 border-border rounded-lg text-sm bg-bg focus:outline-none focus:border-accent" />
+              <input v-model="newBarAddress" type="text" placeholder="Address" class="w-full px-3 py-2 border-2 border-border rounded-lg text-sm bg-bg focus:outline-none focus:border-accent" />
+              <p v-if="addBarError" class="text-xs text-red m-0">{{ addBarError }}</p>
+              <div class="flex gap-2">
+                <button type="button" class="px-3 py-2 rounded-lg text-xs font-semibold border-0 bg-accent text-white cursor-pointer disabled:opacity-50" :disabled="!newBarName.trim() || addingBar" @click="addBarManual">{{ addingBar ? 'Adding…' : 'Add bar' }}</button>
+                <button type="button" class="px-3 py-2 rounded-lg text-xs font-semibold border-2 border-border bg-surface text-text-muted cursor-pointer" @click="showAddBar = false">Cancel</button>
+              </div>
+            </div>
+          </div>
         </section>
 
         <!-- Teams (includes chicken team) -->
@@ -613,6 +632,33 @@ const teamsOpen = ref(false);
 
 // Bar management UI
 const barsOpen = ref(false);
+
+// Add a bar by hand (host can add bars during setup)
+const showAddBar = ref(false);
+const newBarName = ref("");
+const newBarAddress = ref("");
+const addingBar = ref(false);
+const addBarError = ref("");
+
+async function addBarManual() {
+  if (!newBarName.value.trim()) return;
+  addingBar.value = true;
+  addBarError.value = "";
+  try {
+    const res = await auth.authFetch<{ bar: HuntBar }>(`/api/hunts/${huntId}/bars/add`, {
+      method: "POST",
+      body: { name: newBarName.value.trim(), address: newBarAddress.value.trim() },
+    });
+    bars.value.push(res.bar);
+    newBarName.value = "";
+    newBarAddress.value = "";
+    showAddBar.value = false;
+  } catch (e: any) {
+    addBarError.value = e?.data?.message || e?.message || "Failed to add bar";
+  } finally {
+    addingBar.value = false;
+  }
+}
 const barFilter = ref("");
 const barStatusFilter = ref<"all" | "marked">("all");
 const markedForRemoval = ref(new Set<string>());

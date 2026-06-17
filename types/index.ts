@@ -76,7 +76,7 @@ export interface ChickenInput {
 // ── Bar ──────────────────────────────────────────────────
 export interface HuntBar {
   id: string;
-  placeId: string;
+  placeId: string | null;
   name: string;
   address: string;
   lat: number;
@@ -90,6 +90,8 @@ export interface HuntBar {
   checkStatus: "unchecked" | "checked" | "not_checking";
   checkedBy: string | null;
   checkedAt: string | null;
+  source?: string;
+  edited?: boolean;
 }
 
 // ── Hint ─────────────────────────────────────────────────

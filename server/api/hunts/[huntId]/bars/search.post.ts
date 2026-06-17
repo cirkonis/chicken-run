@@ -36,9 +36,21 @@ export default defineEventHandler(async (event) => {
     apiKey
   );
 
-  // Upsert bars into Supabase (don't overwrite existing check_status)
+  // Bars a human has edited keep their corrections — exclude them from the
+  // re-upsert so a re-search can't overwrite the fix.
+  const { data: editedRows } = await supabase
+    .from("hunt_bars")
+    .select("place_id")
+    .eq("hunt_id", huntId)
+    .eq("edited", true)
+    .not("place_id", "is", null);
+  const editedPlaceIds = new Set((editedRows || []).map((r) => r.place_id));
+
+  // Upsert bars into Supabase (don't overwrite existing check_status / edits)
   if (uniqueBars.length > 0) {
-    const rows = uniqueBars.map((b) => ({
+    const rows = uniqueBars
+      .filter((b) => !editedPlaceIds.has(b.placeId))
+      .map((b) => ({
       hunt_id: huntId,
       place_id: b.placeId,
       name: b.name,
@@ -72,6 +84,8 @@ export default defineEventHandler(async (event) => {
       .from("hunt_bars")
       .delete()
       .eq("hunt_id", huntId)
+      .eq("source", "google")
+      .eq("edited", false)
       .not("place_id", "in", `(${newPlaceIds.join(",")})`);
   }
 
