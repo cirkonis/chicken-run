@@ -26,6 +26,17 @@ export default defineNuxtConfig({
           name: "description",
           content: "Find the chickens before you get too sloshed",
         },
+        // ── PWA / "install to home screen" support (issue #1 deeper fix) ──
+        // Installing the app runs it in standalone mode (no browser chrome),
+        // where the Back gesture stays inside the app instead of exiting it —
+        // which is the root cause of players getting bounced to re-enter codes.
+        { name: "theme-color", content: "#e67e22" },
+        // iOS: launch full-screen from the home-screen icon.
+        { name: "apple-mobile-web-app-capable", content: "yes" },
+        { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+        { name: "apple-mobile-web-app-title", content: "Chicken Hunt" },
+        // Android/Chrome equivalent.
+        { name: "mobile-web-app-capable", content: "yes" },
       ],
       link: [
         {
@@ -33,6 +44,8 @@ export default defineNuxtConfig({
           type: "image/svg+xml",
           href: "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐔</text></svg>",
         },
+        // Web app manifest — makes the app installable (see public/manifest.webmanifest).
+        { rel: "manifest", href: "/manifest.webmanifest" },
       ],
     },
   },

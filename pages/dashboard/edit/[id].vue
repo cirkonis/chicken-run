@@ -311,6 +311,25 @@
               No bars match your search.
             </p>
           </template>
+
+          <!-- Add a bar by hand (host, during setup) -->
+          <div v-if="barsOpen && !searchingBars && isPreparing" class="mt-3 pt-3 border-t-2 border-border">
+            <button
+              v-if="!showAddBar"
+              type="button"
+              class="text-sm font-semibold text-accent hover:text-accent-dark cursor-pointer bg-transparent border-0 p-0"
+              @click="showAddBar = true"
+            >+ Add a bar manually</button>
+            <div v-else class="flex flex-col gap-2 p-3 border-2 border-accent/30 rounded-xl bg-accent/5">
+              <input v-model="newBarName" type="text" placeholder="Bar name" class="w-full px-3 py-2 border-2 border-border rounded-lg text-sm bg-bg focus:outline-none focus:border-accent" />
+              <input v-model="newBarAddress" type="text" placeholder="Address" class="w-full px-3 py-2 border-2 border-border rounded-lg text-sm bg-bg focus:outline-none focus:border-accent" />
+              <p v-if="addBarError" class="text-xs text-red m-0">{{ addBarError }}</p>
+              <div class="flex gap-2">
+                <button type="button" class="px-3 py-2 rounded-lg text-xs font-semibold border-0 bg-accent text-white cursor-pointer disabled:opacity-50" :disabled="!newBarName.trim() || addingBar" @click="addBarManual">{{ addingBar ? 'Adding…' : 'Add bar' }}</button>
+                <button type="button" class="px-3 py-2 rounded-lg text-xs font-semibold border-2 border-border bg-surface text-text-muted cursor-pointer" @click="showAddBar = false">Cancel</button>
+              </div>
+            </div>
+          </div>
         </section>
 
         <!-- Teams (includes chicken team) -->
@@ -335,6 +354,50 @@
 
         <!-- Error display -->
         <div v-if="error" class="px-3 py-2 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">{{ error }}</div>
+
+        <!-- Co-managers (issue #4) — owner only. Lets the creator share control
+             of this hunt with another signed-up account by email. -->
+        <section v-if="isOwner" class="bg-surface border-2 border-border rounded-[18px] p-6">
+          <h2 class="m-0 mb-1 text-lg">Co-managers</h2>
+          <p class="text-sm text-text-muted mb-4">
+            Add another signed-up account by email so they can help run this hunt.
+            It'll show up on their dashboard too. They can manage everything except
+            deleting the hunt or changing this list.
+          </p>
+
+          <div class="flex gap-2">
+            <input
+              v-model="coManagerEmail"
+              type="email"
+              placeholder="their@email.com"
+              class="flex-1 px-3 py-2.5 border-2 border-border rounded-xl text-sm bg-bg focus:outline-none focus:border-accent"
+              @keyup.enter.prevent="addCoManager"
+            />
+            <button
+              type="button"
+              class="px-4 py-2.5 border-0 rounded-xl bg-accent text-white font-semibold text-sm cursor-pointer transition-colors hover:bg-accent-dark disabled:opacity-60 disabled:cursor-not-allowed"
+              :disabled="!coManagerEmail.trim() || addingManager"
+              @click="addCoManager"
+            >{{ addingManager ? 'Adding…' : 'Add' }}</button>
+          </div>
+          <p v-if="managerError" class="text-xs text-red m-0 mt-2">{{ managerError }}</p>
+
+          <ul v-if="coManagers.length" class="list-none p-0 m-0 mt-3 flex flex-col gap-2">
+            <li
+              v-for="m in coManagers"
+              :key="m.userId"
+              class="flex items-center gap-2 px-3 py-2.5 bg-bg border-2 border-border rounded-xl"
+            >
+              <span class="flex-1 text-sm font-semibold">{{ m.displayName }}</span>
+              <button
+                type="button"
+                class="px-2.5 py-1 border-2 border-border rounded-lg bg-surface text-xs text-text-muted cursor-pointer transition-all hover:border-red hover:text-red"
+                @click="removeCoManager(m.userId)"
+              >Remove</button>
+            </li>
+          </ul>
+          <p v-else class="text-xs text-text-muted italic m-0 mt-3">No co-managers yet.</p>
+        </section>
 
         <!-- Scary Stuff -->
         <section class="bg-surface border-2 border-red/20 rounded-[18px] p-6">
@@ -530,6 +593,52 @@ const showEndModal = ref(false);
 const showDeleteModal = ref(false);
 const dangerLoading = ref(false);
 
+// ── Co-managers (issue #4) — owner only ─────────────────
+// The owner can add another signed-up account by email; that hunt then shows
+// up on the co-manager's dashboard. Only the creator sees/edits this list.
+const isOwner = ref(false);
+const coManagers = ref<{ userId: string; displayName: string; addedAt?: string }[]>([]);
+const coManagerEmail = ref("");
+const addingManager = ref(false);
+const managerError = ref("");
+
+async function loadManagers() {
+  try {
+    const res = await auth.authFetch<{ managers: { userId: string; displayName: string; addedAt?: string }[] }>(
+      `/api/hunts/${huntId}/managers`
+    );
+    coManagers.value = res.managers || [];
+  } catch {
+    // Non-fatal — the section just shows as empty.
+  }
+}
+
+async function addCoManager() {
+  const email = coManagerEmail.value.trim();
+  if (!email) return;
+  addingManager.value = true;
+  managerError.value = "";
+  try {
+    await auth.authFetch(`/api/hunts/${huntId}/managers`, { method: "POST", body: { email } });
+    coManagerEmail.value = "";
+    await loadManagers();
+  } catch (e: any) {
+    managerError.value = e?.data?.message || e?.message || "Failed to add co-manager";
+  } finally {
+    addingManager.value = false;
+  }
+}
+
+async function removeCoManager(targetUserId: string) {
+  managerError.value = "";
+  try {
+    await auth.authFetch(`/api/hunts/${huntId}/managers/${targetUserId}`, { method: "DELETE" });
+    coManagers.value = coManagers.value.filter((m) => m.userId !== targetUserId);
+  } catch (e: any) {
+    managerError.value = e?.data?.message || e?.message || "Failed to remove co-manager";
+  }
+}
+
 /** True when the hunt is still being prepared (editable) */
 const isPreparing = computed(() => huntStatus.value === "preparing");
 
@@ -613,6 +722,33 @@ const teamsOpen = ref(false);
 
 // Bar management UI
 const barsOpen = ref(false);
+
+// Add a bar by hand (host can add bars during setup)
+const showAddBar = ref(false);
+const newBarName = ref("");
+const newBarAddress = ref("");
+const addingBar = ref(false);
+const addBarError = ref("");
+
+async function addBarManual() {
+  if (!newBarName.value.trim()) return;
+  addingBar.value = true;
+  addBarError.value = "";
+  try {
+    const res = await auth.authFetch<{ bar: HuntBar }>(`/api/hunts/${huntId}/bars/add`, {
+      method: "POST",
+      body: { name: newBarName.value.trim(), address: newBarAddress.value.trim() },
+    });
+    bars.value.push(res.bar);
+    newBarName.value = "";
+    newBarAddress.value = "";
+    showAddBar.value = false;
+  } catch (e: any) {
+    addBarError.value = e?.data?.message || e?.message || "Failed to add bar";
+  } finally {
+    addingBar.value = false;
+  }
+}
 const barFilter = ref("");
 const barStatusFilter = ref<"all" | "marked">("all");
 const markedForRemoval = ref(new Set<string>());
@@ -803,6 +939,10 @@ async function loadHunt() {
     huntStatus.value = h.status;
     startedAt.value = h.startedAt ?? null;
     completedAt.value = h.completedAt ?? null;
+
+    // Co-managers: only the original creator owns the manager list (issue #4).
+    isOwner.value = h.creatorId === auth.state.user?.id;
+    if (isOwner.value) loadManagers();
 
     // Track saved location for change detection
     savedLat.value = lat.value;

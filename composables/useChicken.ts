@@ -91,18 +91,16 @@ export function useChicken(huntId: string) {
     hintUploading.value = !!imageFile;
 
     try {
-      const formData = new FormData();
-      formData.append("text", text);
-
+      // Upload the photo (if any) straight to Storage, then post JSON.
+      let imagePath: string | null = null;
       if (imageFile) {
-        const { compressImage } = useImageCompression();
-        const compressed = await compressImage(imageFile);
-        formData.append("image", compressed, "hint.jpg");
+        const { uploadImage } = useMediaUpload();
+        imagePath = await uploadImage(huntId, "hints", imageFile);
       }
 
       const res = await auth.authFetch<any>(`/api/hunts/${huntId}/hints`, {
         method: "POST",
-        body: formData,
+        body: { text, imagePath },
       });
 
       hints.value.unshift({
@@ -111,7 +109,7 @@ export function useChicken(huntId: string) {
         authorId: res.hint.authorId,
         authorName: auth.state.user?.displayName || "The Chickens 🐔",
         createdAt: res.hint.createdAt,
-        imageUrl: res.hint.imageUrl || null,
+        imagePath: res.hint.imagePath || null,
       });
     } catch (e: any) {
       error.value = e?.data?.message || e?.message || "Failed to add hint";
@@ -163,19 +161,16 @@ export function useChicken(huntId: string) {
     arrivalUploading.value = !!imageFile;
 
     try {
-      const formData = new FormData();
-      formData.append("teamId", teamId);
-      formData.append("note", note);
-
+      // Upload the photo (if any) straight to Storage, then post JSON.
+      let imagePath: string | null = null;
       if (imageFile) {
-        const { compressImage } = useImageCompression();
-        const compressed = await compressImage(imageFile);
-        formData.append("image", compressed, "arrival.jpg");
+        const { uploadImage } = useMediaUpload();
+        imagePath = await uploadImage(huntId, "arrivals", imageFile);
       }
 
       const res = await auth.authFetch<any>(`/api/hunts/${huntId}/arrivals`, {
         method: "POST",
-        body: formData,
+        body: { teamId, note, imagePath },
       });
       arrivals.value.push(res.arrival);
     } catch (e: any) {
@@ -206,6 +201,34 @@ export function useChicken(huntId: string) {
       body: { teamId: chickenTeam.id, barId },
     });
     selectedBarId.value = barId;
+  }
+
+  // ── Bar editing / manual add (coop setup) ─────────────
+  /** Add a bar by hand (name + address) — for when the coop isn't in the list. */
+  async function addBar(name: string, address: string) {
+    try {
+      const res = await auth.authFetch<any>(`/api/hunts/${huntId}/bars/add`, {
+        method: "POST",
+        body: { name, address },
+      });
+      bars.value.push(res.bar);
+    } catch (e: any) {
+      error.value = e?.data?.message || e?.message || "Failed to add bar";
+    }
+  }
+
+  /** Fix a bar's name/address so the map link points at the right place. */
+  async function editBar(barId: string, updates: { name: string; address: string }) {
+    try {
+      const res = await auth.authFetch<any>(`/api/hunts/${huntId}/bars/${barId}`, {
+        method: "PATCH",
+        body: updates,
+      });
+      const idx = bars.value.findIndex((b) => b.id === barId);
+      if (idx >= 0) bars.value[idx] = res.bar;
+    } catch (e: any) {
+      error.value = e?.data?.message || e?.message || "Failed to edit bar";
+    }
   }
 
   // ── Polling (30s background refresh) ───────────────────
@@ -245,8 +268,12 @@ export function useChicken(huntId: string) {
     }
   }
 
+  // Live feed: realtime push (instant) folded in alongside polling (safety net).
+  const realtime = useHuntRealtime(huntId, () => poll());
+
   function startPolling() {
     pollTimer = setInterval(poll, POLL_INTERVAL);
+    realtime.start();
   }
 
   function stopPolling() {
@@ -254,6 +281,7 @@ export function useChicken(huntId: string) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
+    realtime.stop();
   }
 
   // ── Helpers ────────────────────────────────────────────
@@ -303,6 +331,8 @@ export function useChicken(huntId: string) {
     addArrival,
     deleteArrival,
     selectCoop,
+    addBar,
+    editBar,
     formatTime,
 
     // Polling

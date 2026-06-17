@@ -34,8 +34,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "Hunt not found" });
   }
 
-  if (hunt.creator_id !== userId) {
-    throw createError({ statusCode: 403, statusMessage: "Only the hunt creator can change status" });
+  // Creators AND co-managers may start/end the hunt (issue #4).
+  if (!(await isHuntManager(huntId, userId))) {
+    throw createError({ statusCode: 403, statusMessage: "Only a hunt manager can change status" });
   }
 
   // Build update payload

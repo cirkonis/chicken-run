@@ -1,136 +1,50 @@
-import {
-  defineEventHandler,
-  getRouterParam,
-  createError,
-  readMultipartFormData,
-} from "h3";
-import { getUserClient, getAdminClient } from "../../../../utils/supabase";
-import {
-  uploadHintImage,
-  getSignedImageUrl,
-  MAX_HUNT_STORAGE_BYTES,
-} from "../../../../utils/storage";
+import { defineEventHandler, getRouterParam, readBody, createError } from "h3";
+import { getAdminClient, isHuntMember } from "../../../../utils/supabase";
 
-// POST /api/hunts/:huntId/hints — add a hint (with optional image)
-// Body: multipart/form-data with "text" field + optional "image" file
+// POST /api/hunts/:huntId/hints — add a hint (with optional photo).
+//
+// New flow: the photo (if any) is ALREADY in Storage — the client uploaded it
+// directly via /api/media/upload-url — so this endpoint just takes JSON and
+// stores the path. No multipart, no byte streaming.
+// Body JSON: { text?: string, imagePath?: string }
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId!;
   const huntId = getRouterParam(event, "huntId");
-  const supabase = getUserClient(event);
+  if (!huntId) throw createError({ statusCode: 400, statusMessage: "Missing huntId" });
 
-  if (!huntId) {
-    throw createError({ statusCode: 400, statusMessage: "Missing huntId" });
+  // Any participant (or the creator) may post hints. We check membership and use
+  // the admin client so an expiring guest token can't trip RLS mid-hunt.
+  if (!(await isHuntMember(huntId, userId))) {
+    throw createError({ statusCode: 403, statusMessage: "You must be a hunt participant to add hints" });
   }
 
-  // ── Parse multipart form data ─────────────────────────
-  const formData = await readMultipartFormData(event);
-  if (!formData) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Invalid request body",
-    });
+  const admin = getAdminClient();
+  const body = await readBody<{ text?: string; imagePath?: string }>(event);
+  const text = (body?.text || "").trim();
+  const imagePath = body?.imagePath?.trim() || null;
+
+  if (!text && !imagePath) {
+    throw createError({ statusCode: 400, statusMessage: "Hint text or image is required" });
+  }
+  // Make sure a supplied path belongs to this hunt's hints folder.
+  if (imagePath && !imagePath.startsWith(`hints/${huntId}/`)) {
+    throw createError({ statusCode: 400, statusMessage: "Invalid image path" });
   }
 
-  const textPart = formData.find((p) => p.name === "text");
-  const imagePart = formData.find((p) => p.name === "image");
-  const text = textPart?.data?.toString("utf-8")?.trim() || "";
-
-  if (!text && !imagePart?.data) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Hint text or image is required",
-    });
-  }
-
-  // ── Validate image + check storage quota ──────────────
-  let imageSize = 0;
-  let currentStorageUsed = 0;
-
-  if (imagePart?.data) {
-    imageSize = imagePart.data.length;
-
-    if (imageSize > 2 * 1024 * 1024) {
-      throw createError({
-        statusCode: 413,
-        statusMessage: "Image too large (max 2MB)",
-      });
-    }
-
-    // Check hunt storage quota
-    const admin = getAdminClient();
-    const { data: huntRow } = await admin
-      .from("hunts")
-      .select("storage_used_bytes")
-      .eq("id", huntId)
-      .single();
-
-    currentStorageUsed = huntRow?.storage_used_bytes ?? 0;
-
-    if (currentStorageUsed + imageSize > MAX_HUNT_STORAGE_BYTES) {
-      throw createError({
-        statusCode: 413,
-        statusMessage:
-          "Hunt storage limit reached (50MB). Delete old hints to free space.",
-      });
-    }
-  }
-
-  // ── Insert hint row ───────────────────────────────────
-  const { data, error } = await supabase
+  const { data, error } = await admin
     .from("hints")
     .insert({
       hunt_id: huntId,
       author_id: userId,
       text: text || "(photo)",
+      image_path: imagePath,
     })
-    .select("id, text, author_id, created_at")
+    .select("id, text, author_id, created_at, image_path")
     .single();
 
   if (error) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: `Failed to add hint: ${error.message}`,
-    });
+    throw createError({ statusCode: 500, statusMessage: `Failed to add hint: ${error.message}` });
   }
 
-  // ── Upload image if present ───────────────────────────
-  let imageUrl: string | null = null;
-
-  if (imagePart?.data) {
-    try {
-      const imagePath = await uploadHintImage(
-        huntId,
-        data.id,
-        Buffer.from(imagePart.data),
-        imagePart.type || "image/jpeg"
-      );
-
-      // Update hint with image_path + increment storage counter
-      const admin = getAdminClient();
-      await admin
-        .from("hints")
-        .update({ image_path: imagePath })
-        .eq("id", data.id);
-
-      await admin
-        .from("hunts")
-        .update({ storage_used_bytes: currentStorageUsed + imageSize })
-        .eq("id", huntId);
-
-      imageUrl = await getSignedImageUrl(imagePath);
-    } catch (uploadErr: any) {
-      // Hint still exists as text-only if upload fails
-      console.error("Image upload failed:", uploadErr.message);
-    }
-  }
-
-  return {
-    hint: {
-      id: data.id,
-      text: data.text,
-      authorId: data.author_id,
-      createdAt: data.created_at,
-      imageUrl,
-    },
-  };
+  return { hint: mapHint(data) }; // mapHint includes imagePath
 });

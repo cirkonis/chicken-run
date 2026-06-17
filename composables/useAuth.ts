@@ -6,7 +6,7 @@
  * - `authFetch()` proactively refreshes tokens within 60s of expiry
  * - On 401 response: attempts one refresh + retry before logging out
  */
-import type { AuthUser } from "~/types";
+import type { AuthUser, ActiveHunt } from "~/types";
 
 /** Seconds before expiry at which we proactively refresh. */
 const REFRESH_BUFFER_SECS = 60;
@@ -20,12 +20,18 @@ export function useAuth() {
     refreshToken: string | null;
     expiresAt: number | null; // Unix epoch seconds
     loading: boolean;
+    // The hunt this player is currently in. Persisted alongside the session so
+    // the home screen can offer a one-tap "jump back in" after the app closes or
+    // the Back button is pressed — no join-code re-entry (issue #1). Cleared on
+    // logout because it lives inside the same saved-session blob.
+    lastHunt: ActiveHunt | null;
   }>("auth", () => ({
     user: null,
     accessToken: null,
     refreshToken: null,
     expiresAt: null,
     loading: true,
+    lastHunt: null,
   }));
 
   // ── Persistence ────────────────────────────────────────
@@ -40,6 +46,7 @@ export function useAuth() {
           accessToken: state.value.accessToken,
           refreshToken: state.value.refreshToken,
           expiresAt: state.value.expiresAt,
+          lastHunt: state.value.lastHunt,
         })
       );
     } else {
@@ -74,8 +81,27 @@ export function useAuth() {
     state.value.accessToken = null;
     state.value.refreshToken = null;
     state.value.expiresAt = null;
+    state.value.lastHunt = null;
     persist();
     router.push("/");
+  }
+
+  // ── Resume / active hunt (issue #1) ────────────────────
+
+  /**
+   * Remember the hunt the player is in, so the home screen can offer a one-tap
+   * resume instead of making them type their join code again. Called when they
+   * join and whenever a hunt page successfully loads.
+   */
+  function setLastHunt(hunt: ActiveHunt) {
+    state.value.lastHunt = hunt;
+    persist();
+  }
+
+  /** Forget the saved hunt (e.g. the "not you?" dismiss on the resume banner). */
+  function clearLastHunt() {
+    state.value.lastHunt = null;
+    persist();
   }
 
   // ── OAuth callback ────────────────────────────────────
@@ -150,6 +176,7 @@ export function useAuth() {
           state.value.accessToken = parsed.accessToken;
           state.value.refreshToken = parsed.refreshToken;
           state.value.expiresAt = parsed.expiresAt ?? null;
+          state.value.lastHunt = parsed.lastHunt ?? null;
         }
       } catch {
         // Corrupt storage — ignore
@@ -242,10 +269,16 @@ export function useAuth() {
     state: state.value,
     restore,
     setSession,
+    setLastHunt,
+    clearLastHunt,
     logout,
     authFetch,
     isHost,
     isGuest,
     isLoggedIn,
+    // Exposed so the Apollo client (plugins/apollo.client.ts) can reuse the SAME
+    // token-refresh logic instead of forking its own. Keeps one auth system.
+    refreshAccessToken,
+    isTokenExpiringSoon,
   };
 }

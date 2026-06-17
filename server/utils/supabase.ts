@@ -50,3 +50,71 @@ export function getUserClient(event: H3Event): SupabaseClient {
   return client;
 }
 
+// ── Validate a raw JWT (e.g. the /api/media ?token= query param) ─────────────
+/** Returns the user id for a valid access token, or null if invalid/expired. */
+export async function getUserIdFromToken(token: string): Promise<string | null> {
+  if (!token) return null;
+
+  const config = useRuntimeConfig();
+  const url = config.public.supabaseUrl;
+  const anonKey = config.public.supabaseAnonKey;
+  if (!url || !anonKey) return null;
+
+  const client = createClient(url, anonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { data, error } = await client.auth.getUser();
+  return error || !data.user ? null : data.user.id;
+}
+
+// ── Hunt membership check (admin client, bypasses RLS) ───────────────────────
+/** True if the user is a participant of the hunt, its creator, OR a co-manager. */
+export async function isHuntMember(huntId: string, userId: string): Promise<boolean> {
+  if (!huntId || !userId) return false;
+
+  const admin = getAdminClient();
+  const [{ data: participant }, { data: hunt }, { data: manager }] = await Promise.all([
+    admin
+      .from("hunt_participants")
+      .select("user_id")
+      .eq("hunt_id", huntId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+    admin.from("hunts").select("creator_id").eq("id", huntId).maybeSingle(),
+    admin
+      .from("hunt_managers")
+      .select("user_id")
+      .eq("hunt_id", huntId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
+
+  return !!participant || hunt?.creator_id === userId || !!manager;
+}
+
+// ── Hunt management check (admin client, bypasses RLS) ────────────────────────
+/**
+ * True if the user may MANAGE the hunt — i.e. they're the creator OR an added
+ * co-manager (issue #4). This is the server-side mirror of the is_hunt_manager()
+ * SQL function and replaces the old `hunt.creator_id === userId` checks in the
+ * endpoints that use the admin client (which bypasses RLS).
+ */
+export async function isHuntManager(huntId: string, userId: string): Promise<boolean> {
+  if (!huntId || !userId) return false;
+
+  const admin = getAdminClient();
+  const [{ data: hunt }, { data: manager }] = await Promise.all([
+    admin.from("hunts").select("creator_id").eq("id", huntId).maybeSingle(),
+    admin
+      .from("hunt_managers")
+      .select("user_id")
+      .eq("hunt_id", huntId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
+
+  return hunt?.creator_id === userId || !!manager;
+}
+

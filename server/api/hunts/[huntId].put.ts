@@ -33,8 +33,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "Hunt not found" });
   }
 
-  if (hunt.creator_id !== userId) {
-    throw createError({ statusCode: 403, statusMessage: "Only the hunt creator can edit it" });
+  // Creators AND co-managers may edit (issue #4).
+  if (!(await isHuntManager(huntId, userId))) {
+    throw createError({ statusCode: 403, statusMessage: "Only a hunt manager can edit it" });
   }
 
   // Lock edits once hunt has been started

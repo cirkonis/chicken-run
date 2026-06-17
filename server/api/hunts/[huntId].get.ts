@@ -1,6 +1,5 @@
 import { defineEventHandler, getRouterParam, createError } from "h3";
 import { getUserClient, getAdminClient } from "../../utils/supabase";
-import { getSignedImageUrls } from "../../utils/storage";
 
 // GET /api/hunts/:huntId — get a single hunt with bars, hints, participants, teams
 export default defineEventHandler(async (event) => {
@@ -69,38 +68,17 @@ export default defineEventHandler(async (event) => {
       .order("arrived_at"),
     admin
       .from("hunt_check_ins")
-      .select("*, with_team:hunt_teams!hunt_check_ins_with_team_id_fkey(name)")
+      .select("*, hunt_check_in_teams(hunt_teams(id, name))")
       .eq("hunt_id", huntId)
       .order("created_at"),
   ]);
 
-  // Map hints, arrivals, check-ins; collect all image paths for batch signed URL generation
-  const mappedHints = (hintsResult.data || []).map(mapHint);
-  const mappedArrivals = (arrivalsResult.data || []).map(mapArrival);
-  const mappedCheckIns = (checkInsResult.data || []).map(mapCheckIn);
-
-  const allImagePaths = [
-    ...mappedHints.map((h) => h.imagePath),
-    ...mappedArrivals.map((a) => a.imagePath),
-    ...mappedCheckIns.map((c) => c.imagePath),
-  ].filter((p): p is string => !!p);
-
-  const signedUrls = await getSignedImageUrls(allImagePaths);
-
-  const hints = mappedHints.map(({ imagePath, ...hint }) => ({
-    ...hint,
-    imageUrl: imagePath ? signedUrls.get(imagePath) || null : null,
-  }));
-
-  const arrivals = mappedArrivals.map(({ imagePath, ...arrival }) => ({
-    ...arrival,
-    imageUrl: imagePath ? signedUrls.get(imagePath) || null : null,
-  }));
-
-  const checkIns = mappedCheckIns.map(({ imagePath, ...checkIn }) => ({
-    ...checkIn,
-    imageUrl: imagePath ? signedUrls.get(imagePath) || null : null,
-  }));
+  // All three feed types (hints, arrivals, check-ins) serve their photos through
+  // the stable, private /api/media proxy, so we return the raw imagePath and the
+  // client builds the URL (see useMedia / MediaImage.vue). No signed URLs here.
+  const hints = (hintsResult.data || []).map(mapHint);
+  const arrivals = (arrivalsResult.data || []).map(mapArrival);
+  const checkIns = (checkInsResult.data || []).map(mapCheckIn);
 
   return {
     hunt: mapHunt(hunt),

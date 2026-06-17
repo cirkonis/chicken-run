@@ -76,7 +76,7 @@ export interface ChickenInput {
 // ── Bar ──────────────────────────────────────────────────
 export interface HuntBar {
   id: string;
-  placeId: string;
+  placeId: string | null;
   name: string;
   address: string;
   lat: number;
@@ -90,6 +90,8 @@ export interface HuntBar {
   checkStatus: "unchecked" | "checked" | "not_checking";
   checkedBy: string | null;
   checkedAt: string | null;
+  source?: string;
+  edited?: boolean;
 }
 
 // ── Hint ─────────────────────────────────────────────────
@@ -99,7 +101,7 @@ export interface Hint {
   authorId: string;
   authorName: string;
   createdAt: string;
-  imageUrl?: string | null;
+  imagePath?: string | null;
 }
 
 // ── Participant ──────────────────────────────────────────
@@ -128,6 +130,23 @@ export interface AuthSession {
   expires_at?: number;
 }
 
+/**
+ * The hunt a player is currently in. We stash this in their saved session so
+ * the home screen can offer a one-tap "jump back in" shortcut after they close
+ * the app or hit the mobile Back button — no need to re-enter a join code.
+ * (Issue #1.)
+ */
+export interface ActiveHunt {
+  /** The hunt to return to. */
+  huntId: string;
+  /** "chicken" routes to /chicken/[id]; anything else to /hunt/[id]. */
+  role: string;
+  /** Hunt name, shown on the resume banner. */
+  huntName: string;
+  /** The name the player joined as (friendly label on the banner). */
+  playerName?: string;
+}
+
 // ── Expense (chicken budget tracking) ────────────────────
 export interface HuntExpense {
   id: string;
@@ -146,7 +165,7 @@ export interface HuntArrival {
   teamName: string;
   arrivedAt: string;
   note: string;
-  imageUrl?: string | null;
+  imagePath?: string | null;
 }
 
 // ── Check-in (team visited a bar) ───────────────────────
@@ -155,10 +174,9 @@ export interface HuntCheckIn {
   huntId: string;
   barId: string;
   teamId: string | null;
-  withTeamId: string | null;
-  withTeamName: string | null;
+  withTeams: { id: string; name: string }[];
   userId: string;
   note: string;
-  imageUrl?: string | null;
+  imagePath?: string | null;
   createdAt: string;
 }

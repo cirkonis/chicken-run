@@ -19,6 +19,8 @@
       v-else-if="hunt && !selectedBarId"
       :bars="bars"
       @selected="onCoopSelected"
+      @add="addBar"
+      @edit="editBar"
     />
 
     <template v-else-if="hunt">
@@ -246,13 +248,13 @@
                     @click="pendingDeleteHintId = h.id; showDeleteHintConfirm = true"
                   >✕</button>
                 </div>
-                <img
-                  v-if="h.imageUrl"
-                  :src="h.imageUrl"
+                <MediaImage
+                  v-if="h.imagePath"
+                  :path="h.imagePath"
                   alt="Hint photo"
                   class="max-h-48 rounded-lg object-cover cursor-pointer border border-chicken-yellow/30"
                   loading="lazy"
-                  @click="fullImageUrl = h.imageUrl"
+                  @click="fullImagePath = h.imagePath"
                 />
               </li>
             </ul>
@@ -296,13 +298,13 @@
                   >✕</button>
                 </div>
                 <p v-if="a.note" class="text-sm text-text-muted m-0 pl-9">{{ a.note }}</p>
-                <img
-                  v-if="a.imageUrl"
-                  :src="a.imageUrl"
+                <MediaImage
+                  v-if="a.imagePath"
+                  :path="a.imagePath"
                   alt="Arrival photo"
                   class="max-h-48 rounded-lg object-cover cursor-pointer border border-border"
                   loading="lazy"
-                  @click="fullImageUrl = a.imageUrl"
+                  @click="fullImagePath = a.imagePath"
                 />
               </div>
             </div>
@@ -427,6 +429,15 @@
       @confirm="confirmDeleteArrival"
     />
 
+    <!-- Back-button leave confirmation (issue #1) -->
+    <ConfirmModal
+      v-model="showLeaveConfirm"
+      title="Leave the hunt?"
+      message="You can jump straight back in from the home screen — no code needed."
+      confirm-label="Leave"
+      @confirm="goBack"
+    />
+
     <!-- Error toast -->
     <Teleport to="body">
       <div
@@ -441,11 +452,11 @@
     <!-- Fullscreen image viewer -->
     <Teleport to="body">
       <div
-        v-if="fullImageUrl"
+        v-if="fullImagePath"
         class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] cursor-pointer p-4"
-        @click="fullImageUrl = null"
+        @click="fullImagePath = null"
       >
-        <img :src="fullImageUrl" class="max-w-full max-h-full object-contain rounded-lg" />
+        <MediaImage :path="fullImagePath" class="max-w-full max-h-full object-contain rounded-lg" />
       </div>
     </Teleport>
 
@@ -460,6 +471,10 @@ const auth = useAuth();
 const huntId = route.params.id as string;
 const showGuide = ref(false);
 
+// Back-button guard: intercept the mobile/browser Back press and confirm
+// "Leave the hunt?" instead of silently exiting the app (issue #1).
+const { showLeaveConfirm } = useLeaveGuard();
+
 // ── Composable ──────────────────────────────────────────
 const {
   pageLoading, error,
@@ -470,7 +485,7 @@ const {
   budgetTotal, budgetSpent, budgetRemaining, budgetPercent,
   unarrivedTeams,
   loadHunt, addHint, deleteHint, addExpense, deleteExpense, addArrival, deleteArrival,
-  selectCoop,
+  selectCoop, addBar, editBar,
   formatTime,
   startPolling, stopPolling,
 } = useChicken(huntId);
@@ -501,7 +516,7 @@ const arrivalsOpen = ref(true);
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedImage = ref<File | null>(null);
 const imagePreview = ref<string | null>(null);
-const fullImageUrl = ref<string | null>(null);
+const fullImagePath = ref<string | null>(null);
 
 function onFileSelected(e: Event) {
   const input = e.target as HTMLInputElement;
@@ -625,8 +640,13 @@ async function onCoopSelected(barId: string) {
 }
 
 // ── Navigation ──────────────────────────────────────────
+// Chickens are guest players — leaving goes to the home screen but KEEPS the
+// session, so the "jump back in" banner can offer a one-tap return with no
+// join code (issue #1). Full navigation (window.location) also clears the
+// back-button guard's sentinel history entries.
 function goBack() {
-  auth.logout();
+  if (!import.meta.client) return;
+  window.location.href = "/";
 }
 
 // ── Lifecycle ───────────────────────────────────────────
@@ -644,6 +664,16 @@ onMounted(async () => {
   if (hunt.value?.status === 'completed') {
     navigateTo(`/hunt/${huntId}/results`);
     return;
+  }
+
+  // Remember this hunt so the home screen can offer a one-tap resume (issue #1).
+  if (hunt.value) {
+    auth.setLastHunt({
+      huntId,
+      role: "chicken",
+      huntName: hunt.value.name,
+      playerName: auth.state.user?.displayName,
+    });
   }
 
   seenCheckInCount.value = checkIns.value.length;

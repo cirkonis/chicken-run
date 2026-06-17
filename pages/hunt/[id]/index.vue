@@ -162,13 +162,13 @@
                       <span class="font-semibold">{{ a.teamName }}</span>
                     </div>
                     <p v-if="a.note" class="text-sm text-text-muted m-0 pl-8">{{ a.note }}</p>
-                    <img
-                      v-if="a.imageUrl"
-                      :src="a.imageUrl"
+                    <MediaImage
+                      v-if="a.imagePath"
+                      :path="a.imagePath"
                       alt="Arrival photo"
                       class="max-h-48 rounded-lg object-cover cursor-pointer border border-chicken-yellow/30"
                       loading="lazy"
-                      @click="fullImageUrl = a.imageUrl"
+                      @click="fullImagePath = a.imagePath"
                     />
                   </div>
                 </div>
@@ -262,7 +262,15 @@
 
       <!-- Feed tab content -->
       <div v-show="activeTab === 'feed'">
-        <CheckInFeed :check-ins="checkIns" :bars="bars" :teams="teams" :arrivals="arrivals" />
+        <CheckInFeed
+          :check-ins="checkIns"
+          :bars="bars"
+          :teams="teams"
+          :arrivals="arrivals"
+          :current-user-id="auth.state.user?.id"
+          @edit="editCheckIn"
+          @delete="deleteCheckIn"
+        />
       </div>
 
       <!-- Team Rename Modal -->
@@ -331,14 +339,24 @@
       <!-- Fullscreen image viewer -->
       <Teleport to="body">
         <div
-          v-if="fullImageUrl"
+          v-if="fullImagePath"
           class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] cursor-pointer p-4"
-          @click="fullImageUrl = null"
+          @click="fullImagePath = null"
         >
-          <img :src="fullImageUrl" class="max-w-full max-h-full object-contain rounded-lg" />
+          <MediaImage :path="fullImagePath" class="max-w-full max-h-full object-contain rounded-lg" />
         </div>
       </Teleport>
     </template>
+
+    <!-- Back-button leave confirmation (issue #1). Lives outside the hunt
+         block so it works even if the hunt failed to load. -->
+    <ConfirmModal
+      v-model="showLeaveConfirm"
+      title="Leave the hunt?"
+      message="You can jump straight back in from the home screen — no code needed."
+      confirm-label="Leave"
+      @confirm="goBack"
+    />
 
     <GameGuide v-model="showGuide" />
   </div>
@@ -353,6 +371,10 @@ const auth = useAuth();
 const huntId = route.params.id as string;
 const showGuide = ref(false);
 
+// Back-button guard: intercept the mobile/browser Back press and confirm
+// "Leave the hunt?" instead of silently exiting the app (issue #1).
+const { showLeaveConfirm } = useLeaveGuard();
+
 // ── Composables ──────────────────────────────────────────
 const {
   pageLoading, error,
@@ -361,7 +383,7 @@ const {
   isCreator, myTeam, myTeamHunterCount, totalHunterCount, statusCounts, filteredBars,
   budgetTotal, budgetSpent, budgetRemaining, budgetPercent,
   checkInUploading,
-  loadHunt, toggleStatus, checkInBar, renameTeam,
+  loadHunt, toggleStatus, checkInBar, deleteCheckIn, editCheckIn, renameTeam,
   setOnMarkersChanged, startPolling, stopPolling,
 } = useHunt(huntId);
 
@@ -509,7 +531,7 @@ function scrollToBar(barId: string) {
 }
 
 // ── Image viewer ─────────────────────────────────────────
-const fullImageUrl = ref<string | null>(null);
+const fullImagePath = ref<string | null>(null);
 
 // ── User location ────────────────────────────────────────
 const locationActive = ref(false);
@@ -540,20 +562,22 @@ const otherTeams = computed(() =>
 
 /** Intercept check-in / skip toggles on bars */
 function handleBarToggle(bar: HuntBar, target: string) {
-  if (target === "checked" && bar.checkStatus === "unchecked") {
-    // Open the check-in modal
+  if (target === "checked") {
+    // Open the check-in modal. Allowed even when the bar is already "checked",
+    // so a 2nd/3rd/4th team that shows up later can record their own check-in +
+    // photo instead of being locked out (the "4 teams, one bar" problem).
     checkInBarId.value = bar.id;
     showCheckInModal.value = true;
   } else {
-    // Toggle as before (uncheck or suggest skip)
+    // Toggle skip status as before.
     toggleStatus(bar, target);
   }
 }
 
-async function onCheckInSubmit(payload: { note: string; image: File; withTeamId: string | null }) {
+async function onCheckInSubmit(payload: { note: string; image: File; withTeamIds: string[] }) {
   if (!checkInBarId.value) return;
   try {
-    await checkInBar(checkInBarId.value, payload.note, payload.image, payload.withTeamId);
+    await checkInBar(checkInBarId.value, payload.note, payload.image, payload.withTeamIds);
     showCheckInModal.value = false;
     checkInBarId.value = null;
   } catch {
@@ -595,12 +619,14 @@ async function doRenameTeam() {
 }
 
 // ── Navigation ───────────────────────────────────────────
+// Leaving the hunt. Hosts pop back to their dashboard; players go to the home
+// screen but KEEP their session, so the "jump back in" banner can offer a
+// one-tap return with no join code (issue #1). We use a full navigation
+// (window.location) rather than router.push so the back-button guard's sentinel
+// history entries are cleared in the process.
 function goBack() {
-  if (auth.isHost.value) {
-    router.push("/dashboard");
-  } else {
-    auth.logout();
-  }
+  if (!import.meta.client) return;
+  window.location.href = auth.isHost.value ? "/dashboard" : "/";
 }
 
 // ── Lifecycle ────────────────────────────────────────────
@@ -618,6 +644,16 @@ onMounted(async () => {
   if (hunt.value?.status === 'completed') {
     navigateTo(`/hunt/${huntId}/results`);
     return;
+  }
+
+  // Remember this hunt so the home screen can offer a one-tap resume (issue #1).
+  if (hunt.value) {
+    auth.setLastHunt({
+      huntId,
+      role: "hunter",
+      huntName: hunt.value.name,
+      playerName: auth.state.user?.displayName,
+    });
   }
 
   seenCheckInCount.value = checkIns.value.length;

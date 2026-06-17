@@ -41,21 +41,21 @@
           <span v-else class="text-xs text-text-muted">📍 {{ getBarName(ci.barId) }}</span>
         </div>
 
-        <!-- Photo -->
-        <div v-if="ci.imageUrl" class="px-3 pb-2">
+        <!-- Photo (served privately via the /api/media proxy) -->
+        <div v-if="ci.imagePath" class="px-3 pb-2">
           <!-- Normal photo -->
-          <img
+          <MediaImage
             v-if="!isRedacted(ci)"
-            :src="ci.imageUrl"
+            :path="ci.imagePath"
             alt="Check-in photo"
             class="w-full rounded-xl object-cover max-h-[360px] cursor-pointer"
             loading="lazy"
-            @click="fullImageUrl = ci.imageUrl!"
+            @click="fullImagePath = ci.imagePath!"
           />
           <!-- Redacted photo (blurred) -->
           <div v-else class="relative overflow-hidden rounded-xl">
-            <img
-              :src="ci.imageUrl"
+            <MediaImage
+              :path="ci.imagePath"
               alt="Redacted photo"
               class="w-full rounded-xl object-cover max-h-[360px]"
               loading="lazy"
@@ -65,17 +65,51 @@
         </div>
 
         <!-- Note + with team (normal) -->
-        <div v-if="!isRedacted(ci) && (ci.note || ci.withTeamName)" class="px-4 pb-3 flex flex-col gap-1.5">
+        <div v-if="!isRedacted(ci) && (ci.note || ci.withTeams.length)" class="px-4 pb-3 flex flex-col gap-1.5">
           <p v-if="ci.note" class="text-sm m-0 leading-relaxed">{{ ci.note }}</p>
           <span
-            v-if="ci.withTeamName"
+            v-if="ci.withTeams.length"
             class="inline-flex items-center gap-1 text-[11px] font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-md w-fit"
-          >⚔️ Ran into {{ ci.withTeamName }}!</span>
+          >⚔️ Ran into {{ ci.withTeams.map(t => t.name).join(', ') }}!</span>
         </div>
 
         <!-- Note (redacted) -->
         <div v-else-if="isRedacted(ci) && ci.note" class="px-4 pb-3">
           <p class="text-sm m-0 leading-relaxed font-mono text-text-muted/50">{{ scrambleText(ci.note, ci.id + 'note') }}</p>
+        </div>
+
+        <!-- Owner actions (your own, non-redacted check-ins only) -->
+        <div v-if="canEdit(ci) && editingId !== ci.id && pendingDeleteId !== ci.id" class="px-4 pb-3 flex gap-3">
+          <button class="text-[11px] font-semibold text-text-muted hover:text-accent transition-colors" @click="startEdit(ci)">Edit</button>
+          <button class="text-[11px] font-semibold text-text-muted hover:text-red transition-colors" @click="pendingDeleteId = ci.id; editingId = null">Delete</button>
+        </div>
+
+        <!-- Inline edit: note + which team you ran into -->
+        <div v-else-if="editingId === ci.id" class="px-4 pb-3 flex flex-col gap-2">
+          <input
+            v-model="editNote"
+            type="text"
+            placeholder="Note about the visit..."
+            maxlength="200"
+            class="w-full px-3 py-2 border-2 border-border rounded-xl text-sm bg-bg focus:outline-none focus:border-green"
+          />
+          <div class="flex flex-col gap-1 max-h-32 overflow-y-auto">
+            <label v-for="t in otherTeamsFor(ci)" :key="t.id" class="flex items-center gap-2 text-xs cursor-pointer px-2 py-1 border border-border rounded-lg bg-bg">
+              <input type="checkbox" :value="t.id" v-model="editWithTeamIds" class="accent-green" />
+              ⚔️ Ran into {{ t.name }}
+            </label>
+          </div>
+          <div class="flex gap-2">
+            <button class="px-3 py-1.5 rounded-lg text-xs font-semibold border-0 bg-green text-white cursor-pointer hover:bg-green/90" @click="saveEdit(ci)">Save</button>
+            <button class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-border bg-surface text-text-muted cursor-pointer hover:border-accent" @click="cancelEdit">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Inline delete confirm -->
+        <div v-else-if="pendingDeleteId === ci.id" class="px-4 pb-3 flex items-center gap-2 flex-wrap">
+          <span class="text-xs text-text-muted">Delete this check-in?</span>
+          <button class="px-3 py-1.5 rounded-lg text-xs font-semibold border-0 bg-red text-white cursor-pointer hover:bg-red/90" @click="confirmDelete(ci)">Delete</button>
+          <button class="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-border bg-surface text-text-muted cursor-pointer hover:border-accent" @click="pendingDeleteId = null">Cancel</button>
         </div>
       </div>
     </div>
@@ -83,11 +117,11 @@
     <!-- Fullscreen image viewer -->
     <Teleport to="body">
       <div
-        v-if="fullImageUrl"
+        v-if="fullImagePath"
         class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] cursor-pointer p-4"
-        @click="fullImageUrl = null"
+        @click="fullImagePath = null"
       >
-        <img :src="fullImageUrl" class="max-w-full max-h-full object-contain rounded-lg" />
+        <MediaImage :path="fullImagePath" class="max-w-full max-h-full object-contain rounded-lg" />
       </div>
     </Teleport>
   </div>
@@ -101,9 +135,47 @@ const props = defineProps<{
   bars: HuntBar[];
   teams: Team[];
   arrivals: HuntArrival[];
+  currentUserId?: string | null;
 }>();
 
-const fullImageUrl = ref<string | null>(null);
+const emit = defineEmits<{
+  edit: [checkInId: string, updates: { note: string; withTeamIds: string[] }];
+  delete: [checkInId: string];
+}>();
+
+// ── Owner edit / delete ────────────────────────────────
+const editingId = ref<string | null>(null);
+const editNote = ref("");
+const editWithTeamIds = ref<string[]>([]);
+const pendingDeleteId = ref<string | null>(null);
+
+/** You can edit/delete your own check-ins (but not while they're redacted). */
+function canEdit(ci: HuntCheckIn): boolean {
+  return !!props.currentUserId && ci.userId === props.currentUserId && !isRedacted(ci);
+}
+/** Teams you could have "run into" — everyone except chickens and your own team. */
+function otherTeamsFor(ci: HuntCheckIn): Team[] {
+  return props.teams.filter((t) => !t.isChicken && t.id !== ci.teamId);
+}
+function startEdit(ci: HuntCheckIn) {
+  editingId.value = ci.id;
+  editNote.value = ci.note || "";
+  editWithTeamIds.value = ci.withTeams.map((t) => t.id);
+  pendingDeleteId.value = null;
+}
+function saveEdit(ci: HuntCheckIn) {
+  emit("edit", ci.id, { note: editNote.value, withTeamIds: editWithTeamIds.value });
+  editingId.value = null;
+}
+function cancelEdit() {
+  editingId.value = null;
+}
+function confirmDelete(ci: HuntCheckIn) {
+  emit("delete", ci.id);
+  pendingDeleteId.value = null;
+}
+
+const fullImagePath = ref<string | null>(null);
 
 // ── Chaos mode (triggered by team arrivals) ────────────
 const chaosMode = computed(() => props.arrivals.length > 0);

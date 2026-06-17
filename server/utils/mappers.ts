@@ -56,6 +56,8 @@ export function mapBar(row: Record<string, any>): HuntBar {
     checkStatus: row.check_status ?? "unchecked",
     checkedBy: row.checked_by,
     checkedAt: row.checked_at,
+    source: row.source ?? "google",
+    edited: row.edited ?? false,
   };
 }
 
@@ -146,8 +148,10 @@ export function mapCheckIn(row: Record<string, any>): HuntCheckIn & { imagePath?
     huntId: row.hunt_id,
     barId: row.bar_id,
     teamId: row.team_id ?? null,
-    withTeamId: row.with_team_id ?? null,
-    withTeamName: row.with_team?.name ?? null,
+    withTeams: (row.hunt_check_in_teams ?? [])
+      .map((r: any) => r.hunt_teams)
+      .filter(Boolean)
+      .map((t: any) => ({ id: t.id, name: t.name })),
     userId: row.user_id,
     note: row.note || "",
     imagePath: row.image_path || null,

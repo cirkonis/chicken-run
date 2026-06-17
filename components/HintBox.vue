@@ -21,13 +21,13 @@
                 {{ h.authorName }} · {{ formatTime(h.createdAt) }}
               </span>
             </div>
-            <img
-              v-if="h.imageUrl"
-              :src="h.imageUrl"
+            <MediaImage
+              v-if="h.imagePath"
+              :path="h.imagePath"
               alt="Hint photo"
               class="max-h-48 rounded-lg object-cover cursor-pointer border border-chicken-yellow/30"
               loading="lazy"
-              @click="fullImageUrl = h.imageUrl"
+              @click="fullImagePath = h.imagePath"
             />
           </li>
         </ul>
@@ -38,11 +38,11 @@
     <!-- Fullscreen image viewer -->
     <Teleport to="body">
       <div
-        v-if="fullImageUrl"
+        v-if="fullImagePath"
         class="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] cursor-pointer p-4"
-        @click="fullImageUrl = null"
+        @click="fullImagePath = null"
       >
-        <img :src="fullImageUrl" class="max-w-full max-h-full object-contain rounded-lg" />
+        <MediaImage :path="fullImagePath" class="max-w-full max-h-full object-contain rounded-lg" />
       </div>
     </Teleport>
   </div>
@@ -68,7 +68,7 @@ const emit = defineEmits<{
   "update:collapsed": [value: boolean];
 }>();
 
-const fullImageUrl = ref<string | null>(null);
+const fullImagePath = ref<string | null>(null);
 
 function toggle() {
   emit("update:collapsed", !props.collapsed);

@@ -299,3 +299,38 @@ export async function searchBarsNearby(
 
   return { bars: result, circlesUsed: circles.length };
 }
+
+// ── Editable / manual bars ──────────────────────────────────
+//
+// For bars a human edits or adds by hand we have no Google place id, so we build
+// a Google Maps "search" URL from the name + address — it always resolves to the
+// right place. The map pin (lat/lng) is geocoded best-effort.
+
+/** A Google Maps link that searches for "<name>, <address>". Always works. */
+export function buildSearchMapsUrl(name: string, address: string): string {
+  const query = encodeURIComponent([name, address].filter(Boolean).join(", "));
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+}
+
+/**
+ * Geocode an address to lat/lng via the Google Geocoding API (best-effort).
+ * Returns null on no key / no result / any error — callers fall back to the hunt
+ * centre. Requires the Geocoding API enabled on the key.
+ */
+export async function geocodeAddress(
+  query: string,
+  apiKey: string
+): Promise<{ lat: number; lng: number } | null> {
+  if (!apiKey || !query.trim()) return null;
+  try {
+    const resp = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${apiKey}`
+    );
+    if (!resp.ok) return null;
+    const data = (await resp.json()) as any;
+    const loc = data?.results?.[0]?.geometry?.location;
+    return loc && typeof loc.lat === "number" ? { lat: loc.lat, lng: loc.lng } : null;
+  } catch {
+    return null;
+  }
+}

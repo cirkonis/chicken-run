@@ -87,8 +87,34 @@ export default defineEventHandler(async (event) => {
     joinedHunts = data || [];
   }
 
-  // Merge and dedupe: created hunts first, then joined hunts
-  const allHunts = [...(createdHunts || []), ...joinedHunts];
+  // Hunts the user co-manages (issue #4) — they didn't create these and aren't a
+  // participant, but were added to hunt_managers, so they belong on the dashboard.
+  const { data: managerRows } = await supabase
+    .from("hunt_managers")
+    .select("hunt_id")
+    .eq("user_id", userId);
+
+  const managedHuntIds = (managerRows || [])
+    .map((r) => r.hunt_id)
+    .filter(
+      (id) =>
+        !(createdHunts || []).some((h) => h.id === id) &&
+        !joinedHunts.some((h) => h.id === id)
+    );
+  const managedSet = new Set(managedHuntIds);
+
+  let managedHunts: any[] = [];
+  if (managedHuntIds.length > 0) {
+    const { data } = await supabase
+      .from("hunts")
+      .select("*")
+      .in("id", managedHuntIds)
+      .order("created_at", { ascending: false });
+    managedHunts = data || [];
+  }
+
+  // Merge: created hunts first, then co-managed, then joined.
+  const allHunts = [...(createdHunts || []), ...managedHunts, ...joinedHunts];
   const allHuntIds = allHunts.map((h) => h.id);
 
   // Fetch summary stats for all hunts in batch
@@ -128,7 +154,11 @@ export default defineEventHandler(async (event) => {
     hunts: allHunts.map((h) =>
       mapHuntWithRole(
         h,
-        h.creator_id === userId ? "creator" : (roleMap[h.id] || "hunter"),
+        h.creator_id === userId
+          ? "creator"
+          : managedSet.has(h.id)
+            ? "manager"
+            : (roleMap[h.id] || "hunter"),
         {
           teamCount: teamCountMap.get(h.id) || 0,
           memberCount: memberCountMap.get(h.id) || 0,

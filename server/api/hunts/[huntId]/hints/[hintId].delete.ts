@@ -1,6 +1,6 @@
 import { defineEventHandler, getRouterParam, createError } from "h3";
 import { getAdminClient } from "../../../../utils/supabase";
-import { deleteHintImage } from "../../../../utils/storage";
+import { deleteMediaFile } from "../../../../utils/storage";
 
 // DELETE /api/hunts/:huntId/hints/:hintId — delete a single hint
 // Uses admin client to bypass RLS; auth validated by middleware.
@@ -15,28 +15,20 @@ export default defineEventHandler(async (event) => {
 
   const admin = getAdminClient();
 
-  // ── Verify user is a chicken participant or the hunt creator ─
-  const [{ data: participant }, { data: huntRow }] = await Promise.all([
-    admin
-      .from("hunt_participants")
-      .select("role")
-      .eq("hunt_id", huntId)
-      .eq("user_id", userId)
-      .single(),
-    admin
-      .from("hunts")
-      .select("creator_id")
-      .eq("id", huntId)
-      .single(),
-  ]);
+  // ── Verify user is a chicken participant or a hunt manager (issue #4) ─
+  const { data: participant } = await admin
+    .from("hunt_participants")
+    .select("role")
+    .eq("hunt_id", huntId)
+    .eq("user_id", userId)
+    .maybeSingle();
 
   const isChicken = participant?.role === "chicken";
-  const isCreator = huntRow?.creator_id === userId;
 
-  if (!isChicken && !isCreator) {
+  if (!isChicken && !(await isHuntManager(huntId, userId))) {
     throw createError({
       statusCode: 403,
-      statusMessage: "Only chickens or the host can delete hints",
+      statusMessage: "Only chickens or a hunt manager can delete hints",
     });
   }
 
@@ -66,13 +58,10 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // ── Clean up storage if hint had an image ───────────────
-  // Removes the file from the bucket. storage_used_bytes is not decremented
-  // because we don't track per-file sizes — it's a soft quota so minor
-  // over-count is acceptable (the real disk space is freed).
+  // ── Clean up storage if the hint had an image ───────────
   if (hint.image_path) {
     try {
-      await deleteHintImage(hint.image_path);
+      await deleteMediaFile(hint.image_path);
     } catch (cleanupErr: any) {
       // Non-fatal — hint is already deleted
       console.error("Hint image cleanup failed:", cleanupErr.message);

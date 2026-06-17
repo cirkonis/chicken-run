@@ -86,9 +86,9 @@
         </div>
 
         <!-- Ran into -->
-        <div v-if="item.type === 'checkin' && item.data.withTeamName" class="px-4 pb-3">
+        <div v-if="item.type === 'checkin' && item.data.withTeams.length" class="px-4 pb-3">
           <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-md">
-            ⚔️ Ran into {{ item.data.withTeamName }}!
+            ⚔️ Ran into {{ item.data.withTeams.map(t => t.name).join(', ') }}!
           </span>
         </div>
       </div>
@@ -136,6 +136,7 @@ const props = defineProps<{
 
 const fullImageUrl = ref<string | null>(null);
 const failedImages = ref(new Set<string>());
+const { mediaUrl } = useMedia();
 
 function onImageError(key: string) {
   failedImages.value = new Set([...failedImages.value, key]);
@@ -200,10 +201,13 @@ function getTeamName(teamId: string | null): string {
 }
 
 function getImageUrl(item: TimelineItem): string | null {
-  if (item.type === "checkin") return item.data.imageUrl || null;
-  if (item.type === "arrival") return item.data.imageUrl || null;
-  if (item.type === "hint") return item.data.imageUrl || null;
-  return null;
+  // All three feed types now carry a storage path; build the private proxy URL.
+  const path =
+    item.type === "checkin" ? item.data.imagePath
+    : item.type === "arrival" ? item.data.imagePath
+    : item.type === "hint" ? item.data.imagePath
+    : null;
+  return mediaUrl(path);
 }
 
 function getNote(item: TimelineItem): string {

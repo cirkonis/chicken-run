@@ -11,17 +11,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Missing huntId" });
   }
 
-  // Verify the user is the creator
-  const { data: hunt } = await supabase
-    .from("hunts")
-    .select("creator_id")
-    .eq("id", huntId)
-    .single();
-
-  if (!hunt || hunt.creator_id !== userId) {
+  // Verify the user may manage this hunt (creator or co-manager — issue #4)
+  if (!(await isHuntManager(huntId, userId))) {
     throw createError({
       statusCode: 403,
-      statusMessage: "Only the hunt creator can reset bar statuses",
+      statusMessage: "Only a hunt manager can reset bar statuses",
     });
   }
 

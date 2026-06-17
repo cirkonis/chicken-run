@@ -183,18 +183,16 @@ export function useHunt(huntId: string) {
     hintUploading.value = !!imageFile;
 
     try {
-      const formData = new FormData();
-      formData.append("text", text);
-
+      // Upload the photo (if any) straight to Storage, then post JSON.
+      let imagePath: string | null = null;
       if (imageFile) {
-        const { compressImage } = useImageCompression();
-        const compressed = await compressImage(imageFile);
-        formData.append("image", compressed, "hint.jpg");
+        const { uploadImage } = useMediaUpload();
+        imagePath = await uploadImage(huntId, "hints", imageFile);
       }
 
       const res = await auth.authFetch<any>(`/api/hunts/${huntId}/hints`, {
         method: "POST",
-        body: formData,
+        body: { text, imagePath },
       });
 
       hints.value.unshift({
@@ -203,7 +201,7 @@ export function useHunt(huntId: string) {
         authorId: res.hint.authorId,
         authorName: auth.state.user?.displayName || "You",
         createdAt: res.hint.createdAt,
-        imageUrl: res.hint.imageUrl || null,
+        imagePath: res.hint.imagePath || null,
       });
     } catch (e: any) {
       error.value = e?.data?.message || e?.message || "Failed to add hint";
@@ -215,26 +213,21 @@ export function useHunt(huntId: string) {
   // ── Check-Ins ──────────────────────────────────────────
   const checkInUploading = ref(false);
 
-  async function checkInBar(barId: string, note: string = "", imageFile?: File | null, withTeamId?: string | null) {
+  async function checkInBar(barId: string, note: string = "", imageFile?: File | null, withTeamIds: string[] = []) {
     checkInUploading.value = !!imageFile;
 
     try {
-      const formData = new FormData();
-      formData.append("note", note);
-
+      // 1. Upload the photo straight to Storage (bytes never touch our server).
+      let imagePath: string | null = null;
       if (imageFile) {
-        const { compressImage } = useImageCompression();
-        const compressed = await compressImage(imageFile);
-        formData.append("image", compressed, "checkin.jpg");
+        const { uploadImage } = useMediaUpload();
+        imagePath = await uploadImage(huntId, "check-ins", imageFile);
       }
 
-      if (withTeamId) {
-        formData.append("withTeamId", withTeamId);
-      }
-
+      // 2. Record the check-in as plain JSON — just the path + metadata.
       const res = await auth.authFetch<any>(`/api/hunts/${huntId}/bars/${barId}/check-in`, {
         method: "POST",
-        body: formData,
+        body: { imagePath, note, withTeamIds },
       });
 
       // Add check-in to local state
@@ -255,6 +248,30 @@ export function useHunt(huntId: string) {
       throw e;
     } finally {
       checkInUploading.value = false;
+    }
+  }
+
+  /** Delete one of your own check-ins (or any, if you're the host). */
+  async function deleteCheckIn(checkInId: string) {
+    try {
+      await auth.authFetch(`/api/hunts/${huntId}/check-ins/${checkInId}`, { method: "DELETE" });
+      checkIns.value = checkIns.value.filter((c) => c.id !== checkInId);
+    } catch (e: any) {
+      error.value = e?.data?.message || e?.message || "Failed to delete check-in";
+    }
+  }
+
+  /** Edit a check-in's note and/or the team it ran into. */
+  async function editCheckIn(checkInId: string, updates: { note: string; withTeamIds: string[] }) {
+    try {
+      const res = await auth.authFetch<any>(`/api/hunts/${huntId}/check-ins/${checkInId}`, {
+        method: "PATCH",
+        body: updates,
+      });
+      const idx = checkIns.value.findIndex((c) => c.id === checkInId);
+      if (idx >= 0) checkIns.value[idx] = res.checkIn;
+    } catch (e: any) {
+      error.value = e?.data?.message || e?.message || "Failed to edit check-in";
     }
   }
 
@@ -327,8 +344,12 @@ export function useHunt(huntId: string) {
     }
   }
 
+  // Live feed: realtime push (instant) folded in alongside polling (safety net).
+  const realtime = useHuntRealtime(huntId, () => poll());
+
   function startPolling() {
     pollTimer = setInterval(poll, POLL_INTERVAL);
+    realtime.start();
   }
 
   function stopPolling() {
@@ -336,6 +357,7 @@ export function useHunt(huntId: string) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
+    realtime.stop();
   }
 
   // ── Helpers ────────────────────────────────────────────
@@ -390,6 +412,8 @@ export function useHunt(huntId: string) {
     toggleStatus,
     addHint,
     checkInBar,
+    deleteCheckIn,
+    editCheckIn,
     renameTeam,
     refreshHunt,
     formatTime,
