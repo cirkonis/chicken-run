@@ -252,6 +252,13 @@ async function searchOneCircle(circle: Circle, apiKey: string, includedTypes: st
     body: JSON.stringify({
       includedTypes,
       maxResultCount: 20,
+      // Rank by DISTANCE, not the default POPULARITY. Each sub-circle caps at 20
+      // results; with popularity ranking, every overlapping circle returns the
+      // same handful of famous central venues, so the 20-cap silently drops
+      // less-prominent / edge bars in dense areas (they never make any circle's
+      // top 20). Ranking by distance makes each circle return its 20 NEAREST, so
+      // the tiled circles together cover the area far more completely.
+      rankPreference: "DISTANCE",
       locationRestriction: {
         circle: {
           center: { latitude: circle.latitude, longitude: circle.longitude },
