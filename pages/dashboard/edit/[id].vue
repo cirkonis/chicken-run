@@ -334,11 +334,21 @@
 
         <!-- Bar rules (issue: bar rules) — what the bar search filters for -->
         <section v-if="isPreparing" class="bg-surface border-2 border-border rounded-[18px] p-6">
-          <h2 class="m-0 mb-1 text-lg">Bar rules</h2>
-          <p class="text-sm text-text-muted mb-4">
-            Controls what the bar search includes. Closed and temporarily-closed
-            venues are <strong>always</strong> hidden.
-          </p>
+          <div class="flex justify-between items-center" :class="barRulesOpen ? 'mb-3.5' : ''">
+            <h2 class="m-0 text-lg">Bar rules</h2>
+            <button
+              type="button"
+              class="px-3 py-1.5 border-2 border-border rounded-lg bg-bg text-xs font-semibold cursor-pointer transition-all hover:border-accent hover:text-accent"
+              :class="barRulesOpen ? 'border-accent text-accent' : 'text-text-muted'"
+              @click="barRulesOpen = !barRulesOpen"
+            >{{ barRulesOpen ? 'Hide' : 'Show' }}</button>
+          </div>
+
+          <div v-show="barRulesOpen">
+            <p class="text-sm text-text-muted mb-4">
+              Controls what the bar search includes. Closed and temporarily-closed
+              venues are <strong>always</strong> hidden.
+            </p>
 
           <!-- Schedule: drives the opening-time filter -->
           <div class="grid grid-cols-2 gap-2 mb-4">
@@ -385,6 +395,7 @@
             :disabled="savingRules || searchingBars || ruleVenueTypes.length === 0"
             @click="applyBarRules"
           >{{ savingRules ? 'Applying & refreshing bars…' : '🔄 Apply rules & refresh bar list' }}</button>
+          </div>
         </section>
 
         <!-- Teams (includes chicken team) -->
@@ -777,6 +788,9 @@ const teamsOpen = ref(false);
 
 // Bar management UI
 const barsOpen = ref(false);
+
+// Bar rules panel — collapsed by default (it's advanced/optional).
+const barRulesOpen = ref(false);
 
 // Add a bar by hand (host can add bars during setup)
 const showAddBar = ref(false);

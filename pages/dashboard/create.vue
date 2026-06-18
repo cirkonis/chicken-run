@@ -100,10 +100,10 @@ const lat = ref("55.678831");
 const lng = ref("12.579570");
 const radius = ref("1500");
 
-// When the crawl runs (drives the opening-hours bar filter). Default: Saturday 8pm.
+// When the crawl runs (drives the opening-hours bar filter). Default: Saturday 2pm.
 const { DAY_OPTIONS, timeToMinutes } = useSchedule();
 const gameDay = ref<number>(6);
-const startTime = ref("20:00");
+const startTime = ref("14:00");
 // UI state
 const error = ref("");
 const submitting = ref(false);
