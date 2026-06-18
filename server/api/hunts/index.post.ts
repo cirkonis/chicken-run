@@ -21,6 +21,9 @@ export default defineEventHandler(async (event) => {
     radiusMeters?: number;
     budget?: number | null;
     teams?: TeamInput[];
+    gameDay?: number | null;
+    startMinute?: number | null;
+    barFilters?: Record<string, any>;
   }>(event);
 
   if (!body?.name || body.centerLat == null || body.centerLng == null) {
@@ -75,6 +78,11 @@ export default defineEventHandler(async (event) => {
     radius_meters: body.radiusMeters || 1500,
   };
   if (body.budget != null) insertData.budget = body.budget;
+  // Schedule + bar rules (issue: bar rules). Optional at create; the edit page
+  // can set/refine them later.
+  if (body.gameDay != null) insertData.game_day = body.gameDay;
+  if (body.startMinute != null) insertData.start_minute = body.startMinute;
+  if (body.barFilters != null) insertData.bar_filters = body.barFilters;
 
   const { data: hunt, error } = await supabase
     .from("hunts")

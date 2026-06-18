@@ -20,6 +20,9 @@ export default defineEventHandler(async (event) => {
     radiusMeters?: number;
     budget?: number | null;
     teams?: TeamInput[];
+    gameDay?: number | null;
+    startMinute?: number | null;
+    barFilters?: Record<string, any>;
   }>(event);
 
   // Verify this hunt exists and user is the creator
@@ -50,6 +53,10 @@ export default defineEventHandler(async (event) => {
   if (body.centerLng !== undefined) updates.center_lng = body.centerLng;
   if (body.radiusMeters !== undefined) updates.radius_meters = body.radiusMeters;
   if (body.budget !== undefined) updates.budget = body.budget;
+  // Schedule + bar rules (issue: bar rules).
+  if (body.gameDay !== undefined) updates.game_day = body.gameDay;
+  if (body.startMinute !== undefined) updates.start_minute = body.startMinute;
+  if (body.barFilters !== undefined) updates.bar_filters = body.barFilters;
 
   if (Object.keys(updates).length > 0) {
     const { error: updateError } = await supabase

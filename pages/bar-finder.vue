@@ -25,6 +25,23 @@
           </label>
         </div>
 
+        <!-- Venue types (bar rules) — broaden beyond just bars if you like -->
+        <div>
+          <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Show</span>
+          <div class="flex flex-wrap gap-2 mt-1.5">
+            <button
+              v-for="vt in VENUE_TYPE_OPTIONS"
+              :key="vt.value"
+              type="button"
+              class="px-3 py-1.5 border-2 rounded-lg text-xs font-semibold cursor-pointer transition-all"
+              :class="venueTypes.includes(vt.value)
+                ? 'border-accent bg-accent text-white'
+                : 'border-border bg-surface text-text-muted hover:border-accent hover:text-accent'"
+              @click="toggleVenueType(vt.value)"
+            >{{ vt.label }}</button>
+          </div>
+        </div>
+
         <div v-if="geoError" class="px-3 py-2 bg-[#fef0ef] border-2 border-red rounded-[10px] text-[13px] text-red text-center">
           {{ geoError }}
         </div>
@@ -130,8 +147,11 @@
 const {
   searching, error, bars, center, searchRadius,
   filter, statusFilter, statusCounts, filteredBars,
-  searchBars, toggleStatus, setOnMarkersChanged,
+  venueTypes, searchBars, toggleStatus, toggleVenueType, setOnMarkersChanged,
 } = useBarFinder();
+
+// Venue-type options for the bar rules toggles (shared with the host side).
+const { VENUE_TYPE_OPTIONS } = useSchedule();
 
 const { initPicker, placePin, updateRadius, invalidatePickerSize, getMap, cleanupPicker, setOnLocationPicked, setPickingEnabled } = useLocationPicker();
 

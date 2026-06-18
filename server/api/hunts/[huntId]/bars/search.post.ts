@@ -11,10 +11,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Missing huntId" });
   }
 
-  // Verify hunt exists and user has access
+  // Verify hunt exists and user has access (also pull the schedule + bar rules)
   const { data: hunt, error: hError } = await supabase
     .from("hunts")
-    .select("id, center_lat, center_lng, radius_meters")
+    .select("id, center_lat, center_lng, radius_meters, game_day, start_minute, bar_filters")
     .eq("id", huntId)
     .single();
 
@@ -28,12 +28,26 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: "Missing GOOGLE_PLACES_API_KEY" });
   }
 
-  // Search Google Places via shared util
+  // Resolve the host's bar rules (issue: bar rules).
+  //  • venueTypes — which categories count (default: just bars).
+  //  • openAt     — apply the opening-time filter only if the host left it on AND
+  //                 the hunt has a scheduled day + start time.
+  const bf = (hunt.bar_filters as any) || {};
+  const venueTypes: string[] =
+    Array.isArray(bf.venueTypes) && bf.venueTypes.length ? bf.venueTypes : ["bar"];
+  const filterByOpeningTime = bf.filterByOpeningTime !== false; // default ON
+  const openAt =
+    filterByOpeningTime && hunt.game_day != null && hunt.start_minute != null
+      ? { day: hunt.game_day as number, minute: hunt.start_minute as number }
+      : null;
+
+  // Search Google Places via shared util, honoring the rules
   const { bars: uniqueBars, circlesUsed } = await searchBarsNearby(
     hunt.center_lat,
     hunt.center_lng,
     hunt.radius_meters,
-    apiKey
+    apiKey,
+    { venueTypes: venueTypes as any, openAt }
   );
 
   // Bars a human has edited keep their corrections — exclude them from the

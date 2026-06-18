@@ -16,6 +16,17 @@ export function useBarFinder() {
   const filter = ref("");
   const statusFilter = ref("all");
 
+  // Venue-type rule (bar rules feature). The finder has no game schedule, so
+  // there's no opening-time filter here — just these categories + the always-on
+  // closed-venue exclusion. Defaults to bars; the user can broaden it.
+  const venueTypes = ref<string[]>(["bar"]);
+
+  function toggleVenueType(v: string) {
+    const i = venueTypes.value.indexOf(v);
+    if (i >= 0) venueTypes.value.splice(i, 1);
+    else venueTypes.value.push(v);
+  }
+
   // ── Computed ───────────────────────────────────────────
   const statusCounts = computed(() => {
     let unchecked = 0,
@@ -58,7 +69,7 @@ export function useBarFinder() {
     try {
       const res = await $fetch<any>("/api/bars/search", {
         method: "POST",
-        body: { lat, lng, radius },
+        body: { lat, lng, radius, venueTypes: venueTypes.value },
       });
       bars.value = res.bars;
       center.value = res.center;
@@ -86,6 +97,7 @@ export function useBarFinder() {
     searchRadius,
     filter,
     statusFilter,
+    venueTypes,
 
     // Computed
     statusCounts,
@@ -94,6 +106,7 @@ export function useBarFinder() {
     // Actions
     searchBars,
     toggleStatus,
+    toggleVenueType,
     setOnMarkersChanged,
   };
 }
