@@ -43,9 +43,16 @@ export interface PlaceBar {
   category: string;
 }
 
-// ── Classification constants ────────────────────────────────
-const BAR_TYPES = new Set(["bar", "bar_and_grill", "pub", "wine_bar", "night_club", "beer_hall", "beer_garden", "brewpub", "sports_bar"]);
-const REAL_BAR_PRIMARY_TYPES = new Set(["bar", "bar_and_grill", "pub", "wine_bar", "beer_hall", "beer_garden", "brewpub", "sports_bar"]);
+// ── Venue categories ────────────────────────────────────────
+// Each Google place maps to ONE category (below). The host's bar rules choose
+// which categories count as a target (default: just "bar"). Nightclubs are now a
+// category of their own (they used to be lumped with bars then dropped by a
+// hardcoded "opens after 6pm" rule — that heuristic is gone, replaced by the
+// schedule-aware opening-time filter).
+export type Category = "bar" | "cafe" | "restaurant" | "hotel" | "nightclub" | "other";
+
+const BAR_TYPES = new Set(["bar", "bar_and_grill", "pub", "wine_bar", "beer_hall", "beer_garden", "brewpub", "sports_bar"]);
+const NIGHTCLUB_TYPES = new Set(["night_club"]);
 const CAFE_TYPES = new Set(["cafe", "coffee_shop"]);
 const RESTAURANT_TYPES = new Set([
   "restaurant", "fast_food_restaurant", "fine_dining_restaurant",
@@ -65,7 +72,16 @@ const HOTEL_TYPES = new Set([
   "hotel", "bed_and_breakfast", "hostel", "inn", "motel", "resort_hotel", "lodging",
 ]);
 
-type Category = "bar" | "cafe" | "restaurant" | "hotel" | "other";
+// Which Google Places "includedType" to REQUEST for each category. We only ask
+// Google for the categories the host wants, then re-classify the results to be
+// sure (Google's primaryType is authoritative).
+const CATEGORY_INCLUDED_TYPE: Record<Exclude<Category, "other">, string> = {
+  bar: "bar",
+  nightclub: "night_club",
+  cafe: "cafe",
+  restaurant: "restaurant",
+  hotel: "lodging",
+};
 
 // ── Helpers ─────────────────────────────────────────────────
 
@@ -82,13 +98,17 @@ export function priceLevelToNumber(pl?: string): number | null {
 }
 
 function classifyPlace(primaryType?: string, types?: string[]): Category {
+  // primaryType is authoritative; nightclub is checked first so a club that also
+  // carries a "bar" type isn't mis-bucketed as a bar.
   if (primaryType) {
+    if (NIGHTCLUB_TYPES.has(primaryType)) return "nightclub";
     if (BAR_TYPES.has(primaryType)) return "bar";
     if (CAFE_TYPES.has(primaryType)) return "cafe";
     if (RESTAURANT_TYPES.has(primaryType)) return "restaurant";
     if (HOTEL_TYPES.has(primaryType)) return "hotel";
   }
   if (types?.length) {
+    for (const t of types) if (NIGHTCLUB_TYPES.has(t)) return "nightclub";
     for (const t of types) if (BAR_TYPES.has(t)) return "bar";
     for (const t of types) if (CAFE_TYPES.has(t)) return "cafe";
     for (const t of types) if (RESTAURANT_TYPES.has(t)) return "restaurant";
@@ -97,21 +117,35 @@ function classifyPlace(primaryType?: string, types?: string[]): Category {
   return "other";
 }
 
-function getEarliestOpenHour(hours?: PlaceNewResult["regularOpeningHours"]): number | null {
-  if (!hours?.periods?.length) return null;
-  let earliest = 24;
-  for (const p of hours.periods) {
-    if (p.open) {
-      const h = p.open.hour + p.open.minute / 60;
-      if (h < earliest) earliest = h;
+type OpeningPeriods = NonNullable<PlaceNewResult["regularOpeningHours"]>["periods"];
+
+const WEEK_MINUTES = 7 * 1440;
+
+/**
+ * Is a venue open at a given day-of-week (0=Sun..6=Sat) + minute-of-day, per
+ * Google's weekly `regularOpeningHours.periods`?
+ *   true  — open at that moment
+ *   false — closed at that moment
+ *   null  — unknown (no hours data) → callers KEEP the bar (don't punish missing data)
+ *
+ * We work in "minutes since the start of the week" so periods that cross
+ * midnight or the Saturday→Sunday boundary are handled by adding a week to the
+ * close (and re-checking the target a week later). A period with an `open` but
+ * no `close` means 24/7.
+ */
+function isOpenAt(periods: OpeningPeriods, day: number, minute: number): boolean | null {
+  if (!periods || periods.length === 0) return null;
+  const target = day * 1440 + minute;
+  for (const p of periods) {
+    if (!p.open) continue;
+    if (!p.close) return true; // open with no close = always open (24/7)
+    const start = p.open.day * 1440 + p.open.hour * 60 + p.open.minute;
+    let end = p.close.day * 1440 + p.close.hour * 60 + p.close.minute;
+    if (end <= start) end += WEEK_MINUTES; // wraps past the end of the week
+    if ((target >= start && target < end) || (target + WEEK_MINUTES >= start && target + WEEK_MINUTES < end)) {
+      return true;
     }
   }
-  return earliest === 24 ? null : earliest;
-}
-
-function isNightclub(primaryType?: string, openHour?: number | null): boolean {
-  if (primaryType === "night_club") return true;
-  if (openHour != null && openHour >= 18) return true;
   return false;
 }
 
@@ -207,7 +241,7 @@ const FIELD_MASK = [
   "places.regularOpeningHours",
 ].join(",");
 
-async function searchOneCircle(circle: Circle, apiKey: string): Promise<PlaceNewResult[]> {
+async function searchOneCircle(circle: Circle, apiKey: string, includedTypes: string[]): Promise<PlaceNewResult[]> {
   const resp = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
     method: "POST",
     headers: {
@@ -216,7 +250,7 @@ async function searchOneCircle(circle: Circle, apiKey: string): Promise<PlaceNew
       "X-Goog-FieldMask": FIELD_MASK,
     },
     body: JSON.stringify({
-      includedTypes: ["bar"],
+      includedTypes,
       maxResultCount: 20,
       locationRestriction: {
         circle: {
@@ -239,24 +273,57 @@ async function searchOneCircle(circle: Circle, apiKey: string): Promise<PlaceNew
 // ── Main search function ────────────────────────────────────
 
 /**
+ * Host-editable filter rules applied to a search (issue: bar rules).
+ */
+export interface BarFilters {
+  /** Categories that count as a target. Default ["bar"]. */
+  venueTypes?: Category[];
+  /**
+   * If set, keep only venues open at this day-of-week (0=Sun..6=Sat) +
+   * minute-of-day. Venues with no opening-hours data are KEPT. Omit/null to
+   * skip the opening-time filter entirely (e.g. an unscheduled hunt).
+   */
+  openAt?: { day: number; minute: number } | null;
+}
+
+/**
  * Search for bars near a location using Google Places API.
  * Handles multi-circle coverage, filtering, and deduplication.
+ *
+ * Filtering applied to every result:
+ *   • ALWAYS drops temporarily/permanently CLOSED venues,
+ *   • keeps only the chosen venue categories (default: bars),
+ *   • if `openAt` is set, keeps only venues open at that day+time (unknown hours kept).
  */
 export async function searchBarsNearby(
   lat: number,
   lng: number,
   radius: number,
-  apiKey: string
+  apiKey: string,
+  filters: BarFilters = {}
 ): Promise<{ bars: PlaceBar[]; circlesUsed: number }> {
-  const circles = generateSearchCircles(lat, lng, radius);
-  const allPlaces = (await Promise.all(circles.map((c) => searchOneCircle(c, apiKey)))).flat();
+  // Resolve which categories we want and which Google types to request for them.
+  const categories: Category[] =
+    filters.venueTypes && filters.venueTypes.length ? filters.venueTypes : ["bar"];
+  const includedTypes = [
+    ...new Set(
+      categories
+        .filter((c): c is Exclude<Category, "other"> => c !== "other")
+        .map((c) => CATEGORY_INCLUDED_TYPE[c])
+    ),
+  ];
+  if (includedTypes.length === 0) includedTypes.push("bar");
 
-  // Filter and classify
+  const allowed = new Set<Category>(categories);
+  const CLOSED_STATUSES = new Set(["CLOSED_TEMPORARILY", "CLOSED_PERMANENTLY"]);
+
+  const circles = generateSearchCircles(lat, lng, radius);
+  const allPlaces = (await Promise.all(circles.map((c) => searchOneCircle(c, apiKey, includedTypes)))).flat();
+
+  // Map → classify → filter
   const bars = allPlaces
     .map((r) => {
       const loc = r.location;
-      const openHour = getEarliestOpenHour(r.regularOpeningHours);
-      const category = classifyPlace(r.primaryType, r.types);
       return {
         placeId: r.id ?? "",
         name: r.displayName?.text ?? "Unknown",
@@ -268,16 +335,22 @@ export async function searchBarsNearby(
         priceLevel: priceLevelToNumber(r.priceLevel),
         businessStatus: r.businessStatus ?? null,
         mapsUrl: r.googleMapsUri ?? `https://www.google.com/maps/search/?api=1&query_place_id=${encodeURIComponent(r.id ?? "")}`,
-        primaryType: r.primaryType ?? null,
-        category,
-        openHour,
+        category: classifyPlace(r.primaryType, r.types),
+        periods: r.regularOpeningHours?.periods ?? null,
       };
     })
     .filter((b): b is typeof b & { lat: number; lng: number } =>
       typeof b.lat === "number" && typeof b.lng === "number"
     )
-    .filter((b) => !isNightclub(b.primaryType ?? undefined, b.openHour))
-    .filter((b) => b.primaryType != null && REAL_BAR_PRIMARY_TYPES.has(b.primaryType));
+    // Always exclude closed venues (temporary or permanent).
+    .filter((b) => !b.businessStatus || !CLOSED_STATUSES.has(b.businessStatus))
+    // Venue-type rule.
+    .filter((b) => allowed.has(b.category))
+    // Opening-time rule: only when a schedule is supplied; unknown hours are kept.
+    .filter((b) => {
+      if (!filters.openAt) return true;
+      return isOpenAt(b.periods, filters.openAt.day, filters.openAt.minute) !== false;
+    });
 
   // Deduplicate by placeId
   const unique = new Map<string, (typeof bars)[number]>();

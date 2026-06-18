@@ -21,6 +21,9 @@ export function mapHunt(row: Record<string, any>): Hunt {
     completedAt: row.completed_at ?? null,
     creatorId: row.creator_id,
     createdAt: row.created_at,
+    gameDay: row.game_day ?? null,
+    startMinute: row.start_minute ?? null,
+    barFilters: row.bar_filters ?? {},
   };
 }
 

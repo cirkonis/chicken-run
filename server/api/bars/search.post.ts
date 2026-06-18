@@ -8,6 +8,11 @@ export default defineEventHandler(async (event) => {
   const lat = Number(body?.lat);
   const lng = Number(body?.lng);
   const radius = Number(body?.radius) || 1500;
+  // Optional venue-type filter from the finder UI (default: bars). The finder has
+  // no game schedule, so there's no opening-time filter here — just closed-venue
+  // exclusion (always on) + the chosen categories.
+  const venueTypes: string[] =
+    Array.isArray(body?.venueTypes) && body.venueTypes.length ? body.venueTypes : ["bar"];
 
   if (isNaN(lat) || isNaN(lng)) {
     throw createError({ statusCode: 400, statusMessage: "lat and lng are required numbers" });
@@ -23,7 +28,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: "Missing GOOGLE_PLACES_API_KEY" });
   }
 
-  const { bars, circlesUsed } = await searchBarsNearby(lat, lng, radius, apiKey);
+  const { bars, circlesUsed } = await searchBarsNearby(lat, lng, radius, apiKey, {
+    venueTypes: venueTypes as any,
+  });
 
   // Return bars as HuntBar-compatible objects (synthetic IDs, all unchecked)
   return {

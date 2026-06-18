@@ -332,6 +332,61 @@
           </div>
         </section>
 
+        <!-- Bar rules (issue: bar rules) — what the bar search filters for -->
+        <section v-if="isPreparing" class="bg-surface border-2 border-border rounded-[18px] p-6">
+          <h2 class="m-0 mb-1 text-lg">Bar rules</h2>
+          <p class="text-sm text-text-muted mb-4">
+            Controls what the bar search includes. Closed and temporarily-closed
+            venues are <strong>always</strong> hidden.
+          </p>
+
+          <!-- Schedule: drives the opening-time filter -->
+          <div class="grid grid-cols-2 gap-2 mb-4">
+            <label class="flex flex-col gap-1">
+              <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Game day</span>
+              <select v-model.number="ruleGameDay" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg focus:outline-none focus:border-accent">
+                <option v-for="d in DAY_OPTIONS" :key="d.value" :value="d.value">{{ d.label }}</option>
+              </select>
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Start time</span>
+              <input v-model="ruleStartTime" type="time" class="px-3.5 py-2.5 border-2 border-border rounded-xl text-sm bg-bg focus:outline-none focus:border-accent" />
+            </label>
+          </div>
+
+          <!-- Venue types -->
+          <div class="mb-4">
+            <span class="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Include venue types</span>
+            <div class="flex flex-wrap gap-2 mt-1.5">
+              <button
+                v-for="vt in VENUE_TYPE_OPTIONS"
+                :key="vt.value"
+                type="button"
+                class="px-3 py-1.5 border-2 rounded-lg text-xs font-semibold cursor-pointer transition-all"
+                :class="ruleVenueTypes.includes(vt.value)
+                  ? 'border-accent bg-accent text-white'
+                  : 'border-border bg-bg text-text-muted hover:border-accent hover:text-accent'"
+                @click="toggleVenueType(vt.value)"
+              >{{ vt.label }}</button>
+            </div>
+          </div>
+
+          <!-- Opening-time toggle -->
+          <label class="flex items-center gap-2 mb-4 cursor-pointer">
+            <input v-model="ruleOpeningFilter" type="checkbox" class="w-4 h-4 accent-accent" />
+            <span class="text-sm">Only include bars open by the start time on game day</span>
+          </label>
+
+          <p v-if="ruleError" class="text-xs text-red m-0 mb-2">{{ ruleError }}</p>
+
+          <button
+            type="button"
+            class="w-full py-2.5 border-2 border-accent rounded-xl bg-transparent text-accent font-semibold text-sm cursor-pointer transition-all hover:bg-accent hover:text-white disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="savingRules || searchingBars || ruleVenueTypes.length === 0"
+            @click="applyBarRules"
+          >{{ savingRules ? 'Applying & refreshing bars…' : '🔄 Apply rules & refresh bar list' }}</button>
+        </section>
+
         <!-- Teams (includes chicken team) -->
         <section class="bg-surface border-2 border-border rounded-[18px] p-6">
           <div class="grid grid-cols-[1fr_auto] items-start" :class="teamsOpen ? 'mb-3.5' : ''">
@@ -923,6 +978,49 @@ async function updateBars() {
   }
 }
 
+// ── Bar rules + schedule (issue: bar rules) ──────────────
+// All the filter-affecting settings live together here, in the Manage-bars area.
+// Applying them saves the rules then re-runs the Google search so the bar list
+// reflects them immediately.
+const { DAY_OPTIONS, VENUE_TYPE_OPTIONS, timeToMinutes, minutesToTime } = useSchedule();
+const ruleGameDay = ref<number>(6);
+const ruleStartTime = ref("20:00");
+const ruleVenueTypes = ref<string[]>(["bar"]);
+const ruleOpeningFilter = ref(true);
+const savingRules = ref(false);
+const ruleError = ref("");
+
+function toggleVenueType(v: string) {
+  const i = ruleVenueTypes.value.indexOf(v);
+  if (i >= 0) ruleVenueTypes.value.splice(i, 1);
+  else ruleVenueTypes.value.push(v);
+}
+
+async function applyBarRules() {
+  savingRules.value = true;
+  ruleError.value = "";
+  try {
+    // 1. Persist the schedule + rules.
+    await auth.authFetch(`/api/hunts/${huntId}`, {
+      method: "PUT",
+      body: {
+        gameDay: ruleGameDay.value,
+        startMinute: timeToMinutes(ruleStartTime.value),
+        barFilters: { venueTypes: ruleVenueTypes.value, filterByOpeningTime: ruleOpeningFilter.value },
+      },
+    });
+    // 2. Re-run the search so the bar list honors the new rules.
+    const searchRes = await auth.authFetch<{ bars: HuntBar[] }>(`/api/hunts/${huntId}/bars/search`, { method: "POST" });
+    bars.value = searchRes.bars || [];
+    markedForRemoval.value = new Set();
+    nextTick(() => paintBarMarkers());
+  } catch (e: any) {
+    ruleError.value = e?.data?.message || e?.message || "Failed to apply bar rules";
+  } finally {
+    savingRules.value = false;
+  }
+}
+
 // ── Load hunt ────────────────────────────────────────────
 async function loadHunt() {
   loading.value = true;
@@ -943,6 +1041,13 @@ async function loadHunt() {
     // Co-managers: only the original creator owns the manager list (issue #4).
     isOwner.value = h.creatorId === auth.state.user?.id;
     if (isOwner.value) loadManagers();
+
+    // Bar rules + schedule (issue: bar rules)
+    ruleGameDay.value = h.gameDay ?? 6;
+    ruleStartTime.value = minutesToTime(h.startMinute) || "20:00";
+    const bf: any = h.barFilters || {};
+    ruleVenueTypes.value = Array.isArray(bf.venueTypes) && bf.venueTypes.length ? [...bf.venueTypes] : ["bar"];
+    ruleOpeningFilter.value = bf.filterByOpeningTime !== false;
 
     // Track saved location for change detection
     savedLat.value = lat.value;

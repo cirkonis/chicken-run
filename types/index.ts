@@ -1,3 +1,14 @@
+// ── Bar filter rules (per-hunt, host-editable) ────────────
+/** The venue categories a hunt can target. */
+export type BarVenueType = "bar" | "cafe" | "restaurant" | "hotel" | "nightclub";
+
+export interface BarFilterRules {
+  /** Which categories count as a target bar. Default ["bar"]. */
+  venueTypes?: BarVenueType[];
+  /** Apply the "open at the game's start time" filter (needs gameDay + startMinute). Default true. */
+  filterByOpeningTime?: boolean;
+}
+
 // ── Hunt ──────────────────────────────────────────────────
 export interface Hunt {
   id: string;
@@ -14,6 +25,11 @@ export interface Hunt {
   creatorId: string;
   createdAt: string;
   teams?: Team[];
+  // Schedule (drives the opening-time bar filter). 0=Sun..6=Sat; minutes since local midnight.
+  gameDay?: number | null;
+  startMinute?: number | null;
+  /** Host-editable bar filter rules. */
+  barFilters?: BarFilterRules;
 }
 
 /** Hunt with the current user's role and summary stats (used in dashboard list) */
