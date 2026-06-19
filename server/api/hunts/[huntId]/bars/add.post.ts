@@ -1,6 +1,7 @@
 import { defineEventHandler, getRouterParam, readBody, createError } from "h3";
 import { getAdminClient } from "../../../../utils/supabase";
-import { buildSearchMapsUrl, geocodeAddress } from "../../../../utils/places";
+import { buildSearchMapsUrl } from "../../../../utils/places";
+import { geocodeAddress } from "../../../../utils/geoapify";
 
 // POST /api/hunts/:huntId/bars/add — add a bar by hand (name + address).
 // Host or a chicken only. We geocode the address for the map pin and build a
@@ -28,7 +29,7 @@ export default defineEventHandler(async (event) => {
 
   // Geocode for the map pin (best-effort); fall back to the hunt centre.
   const config = useRuntimeConfig();
-  const geo = await geocodeAddress(`${name} ${address}`, config.googlePlacesApiKey);
+  const geo = await geocodeAddress(`${name} ${address}`, config.geoapifyApiKey);
 
   const { data, error } = await admin
     .from("hunt_bars")
