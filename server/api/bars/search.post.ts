@@ -8,11 +8,10 @@ export default defineEventHandler(async (event) => {
   const lat = Number(body?.lat);
   const lng = Number(body?.lng);
   const radius = Number(body?.radius) || 1500;
-  // Optional venue-type filter from the finder UI (default: bars). The finder has
-  // no game schedule, so there's no opening-time filter here — just closed-venue
-  // exclusion (always on) + the chosen categories.
-  const venueTypes: string[] =
-    Array.isArray(body?.venueTypes) && body.venueTypes.length ? body.venueTypes : ["bar"];
+  // Optional venue-type filter from the finder UI (undefined → default set). The
+  // finder has no game schedule, so there's no opening-time filter here.
+  const venueTypes =
+    Array.isArray(body?.venueTypes) && body.venueTypes.length ? body.venueTypes : undefined;
 
   if (isNaN(lat) || isNaN(lng)) {
     throw createError({ statusCode: 400, statusMessage: "lat and lng are required numbers" });
@@ -23,20 +22,21 @@ export default defineEventHandler(async (event) => {
   }
 
   const config = useRuntimeConfig();
-  const apiKey = config.googlePlacesApiKey;
-  if (!apiKey) {
-    throw createError({ statusCode: 500, statusMessage: "Missing GOOGLE_PLACES_API_KEY" });
-  }
+  const apiKey = config.geoapifyApiKey;
 
-  const { bars, circlesUsed } = await searchBarsNearby(lat, lng, radius, apiKey, {
-    venueTypes: venueTypes as any,
-  });
+  const { bars, total } = await searchBarsViaGeoapify(
+    lat,
+    lng,
+    radius,
+    { venueTypes: venueTypes as any },
+    apiKey
+  );
 
   // Return bars as HuntBar-compatible objects (synthetic IDs, all unchecked)
   return {
     center: { lat, lng },
     radius,
-    circlesUsed,
+    total,
     count: bars.length,
     bars: bars.map((b) => ({
       id: b.placeId,

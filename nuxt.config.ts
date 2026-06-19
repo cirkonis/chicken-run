@@ -8,7 +8,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Server-only (never sent to client)
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-    googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || "",
+    // Geoapify powers the bar search + geocoding (OSM data via a clean REST API). Server-only.
+    geoapifyApiKey: process.env.GEOAPIFY_API_KEY || "",
 
     // Client-accessible (exposed via useRuntimeConfig())
     public: {

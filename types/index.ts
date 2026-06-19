@@ -1,6 +1,14 @@
 // ── Bar filter rules (per-hunt, host-editable) ────────────
-/** The venue categories a hunt can target. */
-export type BarVenueType = "bar" | "cafe" | "restaurant" | "hotel" | "nightclub";
+/** The venue categories a hunt can target (each maps to a Geoapify category). */
+export type BarVenueType =
+  | "bar"
+  | "pub"
+  | "taproom"
+  | "biergarten"
+  | "nightclub"
+  | "brewery"
+  | "cafe"
+  | "restaurant";
 
 export interface BarFilterRules {
   /** Which categories count as a target bar. Default ["bar"]. */

@@ -23,14 +23,22 @@ const DAY_OPTIONS: DayOption[] = [
   { value: 0, label: "Sunday" },
 ];
 
-/** The bar venue categories the host can toggle on/off. "bar" is the default. */
+// The bar venue categories the host can toggle on/off. The real drinking spots
+// (bar/pub/taproom/biergarten) are ON by default; the rest are relevant-ish and
+// OFF by default. Each maps to a Geoapify category server-side (geoapify.ts).
 const VENUE_TYPE_OPTIONS = [
-  { value: "bar", label: "Bars & pubs" },
-  { value: "nightclub", label: "Nightclubs" },
-  { value: "cafe", label: "Cafés" },
-  { value: "restaurant", label: "Restaurants" },
-  { value: "hotel", label: "Hotel bars" },
+  { value: "bar", label: "Bars", default: true },
+  { value: "pub", label: "Pubs", default: true },
+  { value: "taproom", label: "Taprooms", default: true },
+  { value: "biergarten", label: "Beer gardens", default: true },
+  { value: "nightclub", label: "Nightclubs", default: false },
+  { value: "brewery", label: "Breweries", default: false },
+  { value: "cafe", label: "Cafés", default: false },
+  { value: "restaurant", label: "Restaurants", default: false },
 ] as const;
+
+/** The venue types enabled by default (bar/pub/taproom/biergarten). */
+const DEFAULT_VENUE_TYPES: string[] = VENUE_TYPE_OPTIONS.filter((o) => o.default).map((o) => o.value);
 
 /** "20:00" → 1200 (minutes since midnight); invalid → null. */
 function timeToMinutes(hhmm: string | null | undefined): number | null {
@@ -51,5 +59,5 @@ function minutesToTime(mins: number | null | undefined): string {
 }
 
 export function useSchedule() {
-  return { DAY_OPTIONS, VENUE_TYPE_OPTIONS, timeToMinutes, minutesToTime };
+  return { DAY_OPTIONS, VENUE_TYPE_OPTIONS, DEFAULT_VENUE_TYPES, timeToMinutes, minutesToTime };
 }

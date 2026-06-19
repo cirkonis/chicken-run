@@ -2,7 +2,7 @@ import { defineEventHandler, getRouterParam, createError } from "h3";
 import { getUserClient } from "../../../../utils/supabase";
 
 // POST /api/hunts/:huntId/bars/search
-// Searches Google Places for bars around the hunt's center, saves them to Supabase
+// Searches Geoapify (OSM data, free) for bars around the hunt's center, saves them to Supabase
 export default defineEventHandler(async (event) => {
   const huntId = getRouterParam(event, "huntId");
   const supabase = getUserClient(event);
@@ -23,31 +23,28 @@ export default defineEventHandler(async (event) => {
   }
 
   const config = useRuntimeConfig();
-  const apiKey = config.googlePlacesApiKey;
-  if (!apiKey) {
-    throw createError({ statusCode: 500, statusMessage: "Missing GOOGLE_PLACES_API_KEY" });
-  }
+  const apiKey = config.geoapifyApiKey;
 
   // Resolve the host's bar rules (issue: bar rules).
-  //  • venueTypes — which categories count (default: just bars).
+  //  • venueTypes — which categories count (undefined → the util's default set).
   //  • openAt     — apply the opening-time filter only if the host left it on AND
   //                 the hunt has a scheduled day + start time.
   const bf = (hunt.bar_filters as any) || {};
-  const venueTypes: string[] =
-    Array.isArray(bf.venueTypes) && bf.venueTypes.length ? bf.venueTypes : ["bar"];
+  const venueTypes =
+    Array.isArray(bf.venueTypes) && bf.venueTypes.length ? bf.venueTypes : undefined;
   const filterByOpeningTime = bf.filterByOpeningTime !== false; // default ON
   const openAt =
     filterByOpeningTime && hunt.game_day != null && hunt.start_minute != null
       ? { day: hunt.game_day as number, minute: hunt.start_minute as number }
       : null;
 
-  // Search Google Places via shared util, honoring the rules
-  const { bars: uniqueBars, circlesUsed } = await searchBarsNearby(
+  // Search Geoapify honoring the rules.
+  const { bars: uniqueBars, total } = await searchBarsViaGeoapify(
     hunt.center_lat,
     hunt.center_lng,
     hunt.radius_meters,
-    apiKey,
-    { venueTypes: venueTypes as any, openAt }
+    { venueTypes: venueTypes as any, openAt },
+    apiKey
   );
 
   // Bars a human has edited keep their corrections — exclude them from the
@@ -67,6 +64,7 @@ export default defineEventHandler(async (event) => {
       .map((b) => ({
       hunt_id: huntId,
       place_id: b.placeId,
+      source: "geoapify",
       name: b.name,
       address: b.address,
       lat: b.lat,
@@ -98,9 +96,9 @@ export default defineEventHandler(async (event) => {
       .from("hunt_bars")
       .delete()
       .eq("hunt_id", huntId)
-      .eq("source", "google")
+      .neq("source", "manual")
       .eq("edited", false)
-      .not("place_id", "in", `(${newPlaceIds.join(",")})`);
+      .not("place_id", "in", `(${newPlaceIds.map((id) => `"${id}"`).join(",")})`);
   }
 
   // Return the full bar list from DB
@@ -113,7 +111,8 @@ export default defineEventHandler(async (event) => {
   return {
     center: { lat: hunt.center_lat, lng: hunt.center_lng },
     radius: hunt.radius_meters,
-    circlesUsed,
+    source: "geoapify",
+    total,
     count: uniqueBars.length,
     bars: (savedBars || []).map(mapBar),
   };

@@ -17,9 +17,10 @@ export function useBarFinder() {
   const statusFilter = ref("all");
 
   // Venue-type rule (bar rules feature). The finder has no game schedule, so
-  // there's no opening-time filter here — just these categories + the always-on
-  // closed-venue exclusion. Defaults to bars; the user can broaden it.
-  const venueTypes = ref<string[]>(["bar"]);
+  // there's no opening-time filter here — just these categories. Defaults to the
+  // standard drinking spots; the user can broaden it.
+  const { DEFAULT_VENUE_TYPES } = useSchedule();
+  const venueTypes = ref<string[]>([...DEFAULT_VENUE_TYPES]);
 
   function toggleVenueType(v: string) {
     const i = venueTypes.value.indexOf(v);

@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, getRouterParam, createError } from "h3";
 import { getAdminClient, isHuntMember } from "../../../../utils/supabase";
-import { buildSearchMapsUrl, geocodeAddress } from "../../../../utils/places";
+import { buildSearchMapsUrl } from "../../../../utils/places";
+import { geocodeAddress } from "../../../../utils/geoapify";
 
 // PATCH /api/hunts/:huntId/bars/:barId
 //   • { name?, address? } — fix a bar's details (host or a chicken only). We
@@ -36,7 +37,7 @@ export default defineEventHandler(async (event) => {
     // Geocode the corrected address for an accurate pin (best-effort), and
     // rebuild the "Open in Maps" link so it points at the right place.
     const config = useRuntimeConfig();
-    const geo = await geocodeAddress(`${name} ${address}`, config.googlePlacesApiKey);
+    const geo = await geocodeAddress(`${name} ${address}`, config.geoapifyApiKey);
 
     const { data, error } = await admin
       .from("hunt_bars")

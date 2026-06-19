@@ -996,10 +996,10 @@ async function updateBars() {
 // All the filter-affecting settings live together here, in the Manage-bars area.
 // Applying them saves the rules then re-runs the Google search so the bar list
 // reflects them immediately.
-const { DAY_OPTIONS, VENUE_TYPE_OPTIONS, timeToMinutes, minutesToTime } = useSchedule();
+const { DAY_OPTIONS, VENUE_TYPE_OPTIONS, DEFAULT_VENUE_TYPES, timeToMinutes, minutesToTime } = useSchedule();
 const ruleGameDay = ref<number>(6);
 const ruleStartTime = ref("20:00");
-const ruleVenueTypes = ref<string[]>(["bar"]);
+const ruleVenueTypes = ref<string[]>([...DEFAULT_VENUE_TYPES]);
 const ruleOpeningFilter = ref(true);
 const savingRules = ref(false);
 const ruleError = ref("");
@@ -1060,7 +1060,7 @@ async function loadHunt() {
     ruleGameDay.value = h.gameDay ?? 6;
     ruleStartTime.value = minutesToTime(h.startMinute) || "20:00";
     const bf: any = h.barFilters || {};
-    ruleVenueTypes.value = Array.isArray(bf.venueTypes) && bf.venueTypes.length ? [...bf.venueTypes] : ["bar"];
+    ruleVenueTypes.value = Array.isArray(bf.venueTypes) && bf.venueTypes.length ? [...bf.venueTypes] : [...DEFAULT_VENUE_TYPES];
     ruleOpeningFilter.value = bf.filterByOpeningTime !== false;
 
     // Track saved location for change detection
