@@ -129,7 +129,14 @@
             v-for="b in filteredBars"
             :key="b.id"
             :bar="b"
-            :labels="{ checked: 'Maybe!', checkedActive: 'Maybe!', not_checking: 'No thanks', notCheckingActive: 'Skipping' }"
+            :labels="{
+              checked: 'Maybe!',
+              checkedActive: 'Un-Maybe',
+              checkedNote: 'In the maybe list',
+              not_checking: 'No thanks',
+              notCheckingActive: 'Un-Skip',
+              notCheckingNote: 'Skipping this bar',
+            }"
             @toggle="toggleStatus"
           />
         </ul>
