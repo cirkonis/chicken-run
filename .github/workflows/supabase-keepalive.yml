@@ -1,0 +1,85 @@
+# ============================================================================
+# Supabase keep-alive
+#
+# Free-tier Supabase pauses a project after ~7 days with no activity. This app
+# only gets used every couple of weeks, so this workflow makes a real API call
+# to the database every 2 days to keep the project awake.
+#
+# It calls the `keepalive()` RPC added in
+# supabase/migrations/20260828000001_keepalive.sql, which bumps a timestamp —
+# so the ping is a genuine read+write against Postgres, not just a request that
+# bounces off the edge.
+#
+# ── Setup (one time) ────────────────────────────────────────────────────────
+# Add two repository secrets (Settings → Secrets and variables → Actions), or:
+#   gh secret set SUPABASE_URL       # https://<project-ref>.supabase.co
+#   gh secret set SUPABASE_ANON_KEY  # the public anon key
+# The anon key is safe here (it ships to browsers anyway) and this RPC is the
+# only thing it can reach on that table.
+#
+# ── The one gotcha ──────────────────────────────────────────────────────────
+# GitHub disables scheduled workflows in a repo with no commits for 60 days. It
+# emails you first, and re-enabling is one button in the Actions tab — but if
+# you go a long quiet stretch, that's the thing to watch. "Run workflow" in the
+# Actions tab (workflow_dispatch below) also lets you ping on demand.
+# ============================================================================
+
+name: Supabase keep-alive
+
+on:
+  schedule:
+    # Every 2 days at 06:23 UTC. Odd minute on purpose: GitHub queues cron jobs
+    # on the hour hardest, so an off-peak minute is less likely to be delayed.
+    # Every 2 days against a ~7 day pause window means two pings can silently
+    # fail before anything actually goes to sleep.
+    - cron: "23 6 */2 * *"
+  # Lets you trigger a ping by hand from the Actions tab.
+  workflow_dispatch:
+
+# No repo contents are needed, so hand the job no permissions at all.
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_ANON_KEY}" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ANON_KEY repository secrets are not set."
+            exit 1
+          fi
+
+          # Try up to 3 times: a single blip (cold start, transient 5xx) should
+          # not send you a red "workflow failed" email.
+          for attempt in 1 2 3; do
+            echo "Attempt ${attempt}…"
+
+            # -s quiet, -S still show errors, --max-time caps a hung request.
+            # Body goes to a file; the status code comes back on stdout.
+            status=$(curl -sS --max-time 30 \
+              -o response.json -w '%{http_code}' \
+              -X POST "${SUPABASE_URL}/rest/v1/rpc/keepalive" \
+              -H "apikey: ${SUPABASE_ANON_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+              -H "Content-Type: application/json" \
+              -d '{}') || status="000"
+
+            if [ "${status}" = "200" ]; then
+              # The RPC returns the timestamp it just wrote — log it as proof.
+              echo "✅ Project pinged. last_ping = $(cat response.json)"
+              exit 0
+            fi
+
+            echo "⚠️  HTTP ${status}: $(cat response.json 2>/dev/null || echo '<no body>')"
+            if [ "${attempt}" -lt 3 ]; then sleep 15; fi
+          done
+
+          echo "::error::Keep-alive ping failed 3 times — the project may be paused or the secrets may be stale."
+          exit 1

@@ -76,3 +76,22 @@ The `pg_graphql` extension (enabled in the baseline) auto-exposes a GraphQL API
 at `/graphql/v1`, enforcing the same RLS as the tables. The frontend talks to it
 through Apollo Client. Custom side-effects (code-join, Places search, image
 handling) stay as Nitro endpoints under `server/api/`.
+
+## Keeping the free-tier project awake
+
+Free-tier Supabase **pauses a project after ~7 days of no activity**, and this
+app only gets used every couple of weeks. To stop it nodding off:
+
+- `migrations/20260828000001_keepalive.sql` adds a single-row `public.keepalive`
+  table and a `public.keepalive()` RPC that bumps its `last_ping` timestamp.
+- `.github/workflows/supabase-keepalive.yml` calls that RPC **every 2 days** with
+  the anon key, so a real read+write hits Postgres well inside the 7-day window.
+
+The ping has to come from **outside** the database — internal schedulers like
+`pg_cron` are not a reliable activity signal. Hence GitHub Actions.
+
+To check it's working: `select * from public.keepalive;` — `last_ping` should
+never be more than ~2 days old. The workflow needs two repo secrets,
+`SUPABASE_URL` and `SUPABASE_ANON_KEY`; see the comments at the top of the
+workflow file, including the one gotcha (GitHub disables cron workflows in a
+repo with no commits for 60 days, after emailing you).
