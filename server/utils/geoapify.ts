@@ -112,14 +112,29 @@ export async function searchBarsViaGeoapify(
   ];
   if (geoapifyCats.length === 0) geoapifyCats.push("catering.bar");
 
+  // Each category gets its OWN `categories=` param. Geoapify used to accept the
+  // comma-separated form (`categories=a,b`) — their docs still show it — but as
+  // of ~Aug 2026 that 400s with `Category "a,b" is not supported`: the value is
+  // no longer split on commas, so the whole string is read as one category name.
+  // No separator works (comma/%2C/;/|/space all 400). Repeating the param does
+  // merge server-side, in one request — verified against the live API:
+  // catering.pub (32) + adult.nightclub (24) => 56 results, either order.
+  // Don't "simplify" this back to a join(",") — that is the outage.
+  const categoriesQuery = geoapifyCats.map((c) => `categories=${c}`).join("&");
+
   const url =
-    `https://api.geoapify.com/v2/places?categories=${geoapifyCats.join(",")}` +
+    `https://api.geoapify.com/v2/places?${categoriesQuery}` +
     `&filter=circle:${lng},${lat},${radius}&limit=${GEOAPIFY_LIMIT}&apiKey=${apiKey}`;
 
   const resp = await fetch(url);
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw createError({ statusCode: 502, statusMessage: `Geoapify HTTP ${resp.status}: ${text.slice(0, 120)}` });
+    // Geoapify puts the useful part (e.g. WHICH category it rejected) at the end
+    // of its message, so keep enough of it to be diagnosable. Collapse
+    // whitespace — statusMessage becomes an HTTP reason phrase and can't hold
+    // newlines. Never echo the URL: it carries the API key.
+    const detail = text.replace(/\s+/g, " ").slice(0, 500);
+    throw createError({ statusCode: 502, statusMessage: `Geoapify HTTP ${resp.status}: ${detail}` });
   }
   const data: any = await resp.json();
   const features: any[] = data?.features ?? [];
